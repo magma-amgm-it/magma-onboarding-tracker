@@ -78,16 +78,27 @@ export const getNewHires           = () => getListItems(LIST_NAMES.newHires);
 export const getCompletions        = () => getListItems(LIST_NAMES.completions);
 
 /* ---- domain writes ---- */
-export function createNewHire(hire) {
-  // hire: { Title(name), Position, Department, Unit, Manager, StartDate, Ref }
-  return createListItem(LIST_NAMES.newHires, hire);
+// Create a NewHires record. `fields` uses only text/number/date columns (no person
+// columns) so it round-trips through Graph without User-Information-List lookups.
+// Expected: { Title, Position, Department, Unit, ManagerName, ManagerUpn, HireUpn,
+//             StartDate, Ref, Review30, Review60, Review90 }
+export function createNewHire(fields) {
+  return createListItem(LIST_NAMES.newHires, fields);
 }
 
-export function setMilestoneCompletion(hireId, milestoneKey, done, completedBy) {
-  // Upsert handled by dataSync/caller; here we create a completion record.
+// Upsert a milestone completion. If we already have the SharePoint item id for this
+// key (spId), PATCH it; otherwise POST a new row. Keyed by Title = `${hireId}|${month}|${index}`.
+export async function upsertCompletion({ spId, key, hireId, done, byName }) {
+  const stamp = new Date().toISOString();
+  if (spId) {
+    await updateListItem(LIST_NAMES.completions, spId, {
+      Done: done, CompletedByName: byName || '', CompletedAt: stamp,
+    });
+    return { id: spId };
+  }
   return createListItem(LIST_NAMES.completions, {
-    Title: milestoneKey, NewHireId: hireId, Done: done, CompletedBy: completedBy,
-    CompletedAt: new Date().toISOString(),
+    Title: key, NewHireId: Number(hireId) || 0, Done: done,
+    CompletedByName: byName || '', CompletedAt: stamp,
   });
 }
 

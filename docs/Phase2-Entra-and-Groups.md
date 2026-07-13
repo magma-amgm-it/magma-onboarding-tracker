@@ -41,16 +41,24 @@ Do these in the Entra admin center (https://entra.microsoft.com) as Global Admin
 2. Add the right people as **members** of each.
 
 ## C. Grant the groups access to the site
-On the site (`/sites/App-OnboardingTracker`) → **Settings (gear) → Site permissions →
-Advanced permissions settings → Grant Permissions**, add:
-- `MAGMA-OnboardingTracker-Admins`   → **Edit** (or Full Control if they manage the site)
-- `MAGMA-OnboardingTracker-Managers` → **Edit**
-- `MAGMA-OnboardingTracker-Users`    → **Edit** (new hires need to tick their own milestones)
+First make yourself a **Site admin** (SharePoint admin center → the site → Membership →
+Site admins → + Add site admins → add yourself) so you can actually open the site — a freshly
+created group site only lets in the auto-created Owners group, so you may be locked out until you do this.
 
-> Note: SharePoint permissions are list-level, not row-level, so "Edit" lets a user technically
-> reach other rows via Graph. The app enforces who-sees-what by role. If you later want a hard
+Then on the site (`/sites/App-OnboardingTracker`) → **Settings (gear) → Site permissions →
+Advanced permissions settings → Grant Permissions**, add (least privilege):
+- `MAGMA-OnboardingTracker-Admins`   → **Full Control** (or Edit) — HR set everything up.
+- `MAGMA-OnboardingTracker-Managers` → **Contribute** — add/edit completion + new-hire records,
+  but cannot change list structure or delete lists.
+- `MAGMA-OnboardingTracker-Users`    → **Read** — new hires view their own progress only.
+  The **manager** verifies work and ticks the box, so users must NOT be able to write. Read means
+  any attempt to tick a milestone (write to MilestoneCompletions) is refused server-side, not just
+  hidden in the UI.
+
+> Note: SharePoint permissions are list-level, not row-level, so Contribute lets a manager technically
+> reach other teams' rows via Graph. The app enforces who-sees-what by role. If you later want a hard
 > row-level boundary, we split reads through a Power Automate/Azure Function proxy — track that in
-> SECURITY-PLAYBOOK.md. For the pilot, group-level Edit is fine.
+> SECURITY-PLAYBOOK.md. For the pilot, group-level Read/Contribute is fine.
 
 ---
 
