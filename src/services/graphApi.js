@@ -12,9 +12,9 @@ export const LIST_NAMES = {
 };
 
 /* ---- low-level fetch with token, 429 back-off, friendly errors ---- */
-async function graphFetch(url, { method = 'GET', body, retries = 2 } = {}) {
+async function graphFetch(url, { method = 'GET', body, retries = 2, headers: extra } = {}) {
   const token = await getAccessToken();
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(extra || {}) };
   for (let attempt = 0; attempt <= retries; attempt++) {
     const res = await fetch(`${GRAPH_BASE}${url}`, {
       method, headers, body: body ? JSON.stringify(body) : undefined,
@@ -89,6 +89,31 @@ export const getCompletions        = () => getListItems(LIST_NAMES.completions);
 //             StartDate, Ref, Review30, Review60, Review90 }
 export function createNewHire(fields) {
   return createListItem(LIST_NAMES.newHires, fields);
+}
+
+// Update fields on an existing NewHires record (e.g. reassign manager).
+export function updateNewHire(hireId, fields) {
+  return updateListItem(LIST_NAMES.newHires, hireId, fields);
+}
+
+// Live directory search for the people pickers (manager + new hire).
+// Uses $search (needs ConsistencyLevel: eventual) so it matches any name token,
+// not just the start of the display name. Requires User.ReadBasic.All (granted).
+export async function searchPeople(query) {
+  const q = (query || '').trim();
+  if (q.length < 2) return [];
+  const safe = q.replace(/"/g, '');
+  const search = encodeURIComponent(`"displayName:${safe}" OR "mail:${safe}" OR "userPrincipalName:${safe}"`);
+  const url = `/users?$search=${search}&$select=id,displayName,mail,userPrincipalName&$top=8`;
+  const data = await graphFetch(url, { headers: { ConsistencyLevel: 'eventual' } });
+  return (data.value || [])
+    .filter((u) => u.userPrincipalName && !/#EXT#/i.test(u.userPrincipalName)) // skip guest accounts
+    .map((u) => ({
+      id: u.id,
+      name: u.displayName || u.userPrincipalName,
+      upn: (u.userPrincipalName || '').toLowerCase(),
+      mail: (u.mail || '').toLowerCase(),
+    }));
 }
 
 // Upsert a milestone completion. If we already have the SharePoint item id for this

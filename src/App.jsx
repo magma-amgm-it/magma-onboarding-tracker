@@ -5,7 +5,7 @@ import {
   managerOptions, ini, colorFor, isOrgWide, fmtDate,
 } from './data.js';
 import { login, logout, getActiveAccount } from './services/auth.js';
-import { getMe, getMyGroupNames, createNewHire, upsertCompletion } from './services/graphApi.js';
+import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople } from './services/graphApi.js';
 import { createDataSyncManager } from './services/dataSync.js';
 import { mapAll } from './dataMap.js';
 
@@ -54,6 +54,49 @@ function DeptIcon({ svg, size = 22 }) {
   }} />;
 }
 
+/* ---- live directory people picker (manager + new hire) ---- */
+function PeoplePicker({ value, onChange, placeholder }) {
+  const [q, setQ] = useState(value && value.name ? value.name : '');
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const seq = useRef(0);
+  useEffect(() => { if (value && value.name) setQ(value.name); }, [value && value.name]);
+  useEffect(() => {
+    if (!open) return;
+    const term = q.trim();
+    if (term.length < 2) { setResults([]); setLoading(false); return; }
+    setLoading(true);
+    const my = ++seq.current;
+    const t = setTimeout(async () => {
+      try { const r = await searchPeople(term); if (my === seq.current) setResults(r); }
+      catch { if (my === seq.current) setResults([]); }
+      finally { if (my === seq.current) setLoading(false); }
+    }, 260);
+    return () => clearTimeout(t);
+  }, [q, open]);
+  const pick = (p) => { if (onChange) onChange(p); setQ(p.name); setOpen(false); setResults([]); };
+  const onType = (e) => { const v = e.target.value; setQ(v); setOpen(true); if (value && value.name && v !== value.name && onChange) onChange(null); };
+  return (
+    <div style={{ position: 'relative' }}>
+      <input value={q} onChange={onType} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 160)} placeholder={placeholder}
+        style={{ width: '100%', fontSize: 15.5, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' }} />
+      {open && q.trim().length >= 2 && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 80, background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 10, boxShadow: '0 14px 34px -14px rgba(40,30,10,.45)', overflow: 'hidden', maxHeight: 240, overflowY: 'auto' }}>
+          {loading && <div style={{ padding: '10px 13px', fontSize: 14, color: MUTED }}>Searching…</div>}
+          {!loading && results.length === 0 && <div style={{ padding: '10px 13px', fontSize: 14, color: MUTED }}>No matches in your directory</div>}
+          {results.map((p) => (
+            <div key={p.id} onMouseDown={(ev) => { ev.preventDefault(); pick(p); }} className="rowhover" style={{ padding: '9px 13px', cursor: 'pointer' }}>
+              <div style={{ fontSize: 14.5, color: INK }}>{p.name}</div>
+              <div style={{ fontSize: 12.5, color: MUTED }}>{p.mail || p.upn}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---- full-screen framed states (login / loading / denied / error) ---- */
 function Shell({ children }) {
   return (
@@ -87,12 +130,11 @@ export default function App() {
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignStep, setAssignStep] = useState('form'); // form | saving | done
-  const [assignName, setAssignName] = useState('');
-  const [assignEmail, setAssignEmail] = useState('');
+  const [assignHire, setAssignHire] = useState(null);       // { name, upn, mail } from directory
   const [assignPos, setAssignPos] = useState('');
   const [assignDept, setAssignDept] = useState('');
   const [assignUnit, setAssignUnit] = useState('');
-  const [assignManager, setAssignManager] = useState(managerOptions[0]);
+  const [assignManagerP, setAssignManagerP] = useState(null); // { name, upn, mail } from directory
   const [assignStart, setAssignStart] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
@@ -240,6 +282,19 @@ export default function App() {
   };
 
   /* ---- live write: toggle a milestone (optimistic + upsert) ---- */
+  async function reassignManager(hireId, person) {
+    if (!person || !person.name) return; // clearing handled elsewhere; ignore null
+    const prev = emps[hireId];
+    setData((d) => ({ ...d, emps: { ...d.emps, [hireId]: { ...d.emps[hireId], manager: person.name, managerUpn: (person.upn || person.mail || '') } } }));
+    try {
+      await updateNewHire(hireId, { ManagerName: person.name, ManagerUpn: person.upn || person.mail || '' });
+      setToast('Manager updated to ' + person.name + '.');
+    } catch (e) {
+      setData((d) => ({ ...d, emps: { ...d.emps, [hireId]: prev } }));
+      setToast('Could not update manager: ' + (e.message || e));
+    }
+  }
+
   async function toggleMilestone(hireId, m, i) {
     if (!canTick) return;
     const key = `${hireId}|${m}|${i}`;
@@ -321,7 +376,7 @@ export default function App() {
   const openAssign = () => {
     const d0 = allDepts[0] || '';
     setAssignDept(d0); setAssignUnit((depts[d0] && depts[d0].units[0]) || '');
-    setAssignName(''); setAssignEmail(''); setAssignPos(''); setAssignManager(managerOptions[0]);
+    setAssignHire(null); setAssignPos(''); setAssignManagerP(null);
     setAssignStart(new Date().toISOString().slice(0, 10));
     setAssignStep('form'); setAssignOpen(true);
   };
@@ -647,7 +702,7 @@ export default function App() {
     });
 
     const backFromJourney = () => isEmployee ? goHome() : cameFromList ? setView('list') : setView('dept');
-    const mopts = managerOptions.includes(emp.manager) || !emp.manager ? managerOptions : [emp.manager, ...managerOptions];
+    const canReassign = role === 'hr';
 
     return (
       <div style={{ padding: '40px 48px 72px', maxWidth: 980 }}>
@@ -669,10 +724,17 @@ export default function App() {
           <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap', marginTop: '22px' }}>
             <div style={{ flex: 1, minWidth: 230 }}>
               <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '8px' }}>Reporting manager</label>
-              <select value={emp.manager} disabled style={{ width: '100%', fontSize: 14.5, padding: '11px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.945 0.015 72)', color: INK, cursor: 'default' }}>
-                {mopts.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <div style={{ fontSize: 13.5, color: MUTED, marginTop: '7px' }}>Set when the journey was created</div>
+              {canReassign ? (
+                <div>
+                  <PeoplePicker value={{ name: e.manager, upn: e.managerUpn, mail: e.managerUpn }} onChange={(p) => reassignManager(id, p)} placeholder="Search your directory…" />
+                  <div style={{ fontSize: 13.5, color: MUTED, marginTop: '7px' }}>Pick a new person to reassign — saves immediately</div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ width: '100%', fontSize: 14.5, padding: '11px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.945 0.015 72)', color: INK }}>{emp.manager || '—'}</div>
+                  <div style={{ fontSize: 13.5, color: MUTED, marginTop: '7px' }}>Set by HR</div>
+                </div>
+              )}
             </div>
             <div style={{ flex: 1, minWidth: 230 }}>
               <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '8px' }}>Review checkpoints</label>
@@ -740,18 +802,18 @@ export default function App() {
   const addDaysISO = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
   async function submitJourney() {
-    if (!assignName.trim()) { setToast('Please enter the new hire’s name.'); return; }
+    if (!assignHire || !assignHire.name) { setToast('Please pick the new hire from the directory.'); return; }
     setAssignStep('saving');
     try {
       const ref = 'MAGMA-' + String(nextRefNum()).padStart(4, '0');
       await createNewHire({
-        Title: assignName.trim(),
+        Title: assignHire.name,
         Position: assignPos.trim(),
         Department: assignDept,
         Unit: assignUnit,
-        ManagerName: assignManager,
-        ManagerUpn: '',
-        HireUpn: assignEmail.trim().toLowerCase(),
+        ManagerName: assignManagerP ? assignManagerP.name : '',
+        ManagerUpn: assignManagerP ? (assignManagerP.upn || assignManagerP.mail || '') : '',
+        HireUpn: assignHire.upn || assignHire.mail || '',
         StartDate: assignStart,
         Ref: ref,
         Review30: addDaysISO(assignStart, 30),
@@ -776,11 +838,11 @@ export default function App() {
               <h3 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: 0 }}>Create a new hire journey</h3>
             </div>
             <div style={{ padding: '22px 26px' }}>
-              <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>New hire name</label>
-              <input value={assignName} onChange={(e) => setAssignName(e.target.value)} placeholder="e.g. Jordan Pierre" style={{ width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none', marginBottom: '16px' }} />
-
-              <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>New hire email <span style={{ color: MUTED }}>(so they can see their own journey — optional)</span></label>
-              <input value={assignEmail} onChange={(e) => setAssignEmail(e.target.value)} placeholder="e.g. jordan.pierre@magma-amgm.org" style={{ width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none', marginBottom: '16px' }} />
+              <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>New hire <span style={{ color: MUTED }}>(search your directory)</span></label>
+              <div style={{ marginBottom: assignHire ? '8px' : '16px' }}>
+                <PeoplePicker value={assignHire} onChange={setAssignHire} placeholder="Type a name or email…" />
+              </div>
+              {assignHire && <div style={{ fontSize: 13, color: 'oklch(0.52 0.07 150)', marginBottom: '16px' }}>Linked to {assignHire.mail || assignHire.upn} — they'll see their own journey.</div>}
 
               <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Position / title</label>
               <input value={assignPos} onChange={(e) => setAssignPos(e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none', marginBottom: '16px' }} />
@@ -794,9 +856,7 @@ export default function App() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Reporting manager</label>
-                  <select value={assignManager} onChange={(e) => setAssignManager(e.target.value)} style={{ width: '100%', fontSize: 14.5, padding: '11px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, cursor: 'pointer' }}>
-                    {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <PeoplePicker value={assignManagerP} onChange={setAssignManagerP} placeholder="Search…" />
                 </div>
               </div>
               {assignDeptUnits.length > 0 && (
@@ -830,7 +890,7 @@ export default function App() {
             <div className="rise" style={{ textAlign: 'center', fontSize: 13.5, letterSpacing: '0.02em', color: 'oklch(0.52 0.07 150)', marginBottom: '6px', animationDelay: '.15s' }}>Journey created</div>
             <h3 className="rise" style={{ textAlign: 'center', fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: '0 0 6px', animationDelay: '.2s' }}>Saved to SharePoint</h3>
             <p className="rise" style={{ textAlign: 'center', fontSize: 15, color: 'oklch(0.44 0.010 60)', lineHeight: 1.5, margin: '0 0 18px', animationDelay: '.25s' }}>
-              <strong style={{ color: INK }}>{assignName || 'The new hire'}</strong>{assignPos ? ' · ' + assignPos : ''}{unitTxtA} in {aDept.name}. Their Month 1–3 checklist is generated from the department template and now appears in the list.
+              <strong style={{ color: INK }}>{assignHire ? assignHire.name : 'The new hire'}</strong>{assignPos ? ' · ' + assignPos : ''}{unitTxtA} in {aDept.name}. Their Month 1–3 checklist is generated from the department template and now appears in the list.
             </p>
 
             <div className="rise" style={{ background: 'oklch(0.965 0.012 75)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden', marginBottom: '16px', animationDelay: '.3s' }}>
