@@ -53,7 +53,12 @@ async function getListItems(listName) {
   const data = await graphFetch(
     `/sites/${siteId}/lists/${encodeURIComponent(listName)}/items?expand=fields&$top=500`,
   );
-  return (data.value || []).map((it) => ({ id: it.id, ...it.fields }));
+  return (data.value || []).map((it) => ({
+    id: it.id,
+    createdDateTime: it.createdDateTime,
+    lastModifiedDateTime: it.lastModifiedDateTime,
+    ...it.fields,
+  }));
 }
 
 async function createListItem(listName, fields) {

@@ -170,6 +170,7 @@ export default function App() {
   /* ============ ready: live data in scope ============ */
   const { depts, milestones, emps, compIndex } = data;
   const checked = data.checked;
+  const events = data.events || [];
   const allDepts = Object.keys(depts);
 
   /* data-bound helpers (were in data.js; now close over live data) */
@@ -219,6 +220,7 @@ export default function App() {
   const switchRole = (id) => { setRole(id); setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); setQuery(''); };
   const openList = (filter) => { if (isEmployee) return; setView('list'); setListFilter(filter); setDeptId(null); setEmpId(null); };
   const openDept = (id) => { if (isEmployee) return; setView('dept'); setDeptId(id); setListFilter(null); };
+  const openActivity = () => { if (isEmployee) return; setView('activity'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const openJourney = (id) => { if (isEmployee && id !== rm.empId) return; setView('journey'); setEmpId(id); setMonth(1); };
 
   const overallPct = scopeEmps.length ? Math.round(scopeEmps.reduce((a, id) => a + pctOf(checked, id), 0) / scopeEmps.length) : 0;
@@ -297,8 +299,7 @@ export default function App() {
       {!isEmployee && (
         <div>
           <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>Workspace</div>
-          <div className="rowhover" style={{ padding: '8px 10px', fontSize: 14.5, color: 'oklch(0.44 0.010 60)', borderRadius: 9, cursor: 'pointer' }}>Activity log</div>
-          <div className="rowhover" style={{ padding: '8px 10px', fontSize: 14.5, color: 'oklch(0.44 0.010 60)', borderRadius: 9, cursor: 'pointer' }}>Settings</div>
+          <div onClick={openActivity} className="rowhover" style={sideItem(view === 'activity' && !searching)}><span>Activity log</span></div>
         </div>
       )}
 
@@ -306,9 +307,11 @@ export default function App() {
         <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'oklch(0.92 0.035 55)', color: 'oklch(0.58 0.09 45)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 500 }}>{meCard.initials}</div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 16, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meCard.name}</div>
-          <div style={{ fontSize: 13.5, color: MUTED }}>{meCard.roleLabel}</div>
+          <div style={{ fontSize: 13, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={me.email || me.upn}>{me.email || me.upn}</div>
         </div>
-        <span onClick={onSignOut} title="Sign out" className="rowhover" style={{ cursor: 'pointer', color: MUTED, fontSize: 13, padding: '4px 6px', borderRadius: 7, flex: 'none' }}>Sign out</span>
+        <span onClick={onSignOut} title="Sign out" className="rowhover" style={{ cursor: 'pointer', color: MUTED, padding: '5px', borderRadius: 7, flex: 'none', display: 'flex', alignItems: 'center' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
+        </span>
       </div>
     </aside>
   );
@@ -524,6 +527,62 @@ export default function App() {
         <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '0 0 26px', maxWidth: 560 }}>{blurb}</p>
         {rows.length ? <HiresTable rows={rows} showDept={true} /> : (
           <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '40px', textAlign: 'center', color: MUTED, fontSize: 15 }}>{empty}</div>
+        )}
+      </div>
+    );
+  };
+
+  /* ---- activity feed (live: milestone check-offs + new journeys) ---- */
+  const fmtDateTime = (s) => {
+    if (!s) return '';
+    const d = new Date(s);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+  const ActivityFeed = () => {
+    const inScope = new Set(scopeEmps);
+    const items = [];
+    for (const e of events) {
+      const hireId = (e.key || '').split('|')[0];
+      if (!emps[hireId] || !inScope.has(hireId)) continue;
+      const m = parseInt((e.key || '').split('|')[1], 10);
+      const idx = parseInt((e.key || '').split('|')[2], 10);
+      const dept = emps[hireId].dept;
+      const text = (milestones[dept] && milestones[dept][m] && milestones[dept][m][idx]) || 'a milestone';
+      items.push({ type: 'tick', at: e.at, hire: emps[hireId].name, by: e.byName, text, dept });
+    }
+    for (const id of scopeEmps) {
+      if (emps[id].created) items.push({ type: 'journey', at: emps[id].created, hire: emps[id].name, dept: emps[id].dept });
+    }
+    items.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+    const top = items.slice(0, 40);
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 860 }}>
+        <button onClick={goHome} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, letterSpacing: '0.01em', color: MUTED, padding: 0, marginBottom: '24px' }}>‹ Overview</button>
+        <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0, lineHeight: 1 }}>Activity log</h1>
+        <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '12px 0 26px', maxWidth: 560 }}>Recent milestone check-offs and new journeys{role === 'manager' ? ' in your department' : ''}, newest first.</p>
+        {top.length ? (
+          <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, overflow: 'hidden' }}>
+            {top.map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '13px', padding: '15px 22px', borderBottom: i < top.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none' }}>
+                <div style={{ width: 26, height: 26, borderRadius: 7, flex: 'none', display: 'grid', placeItems: 'center', background: a.type === 'tick' ? 'oklch(0.95 0.05 150)' : 'oklch(0.92 0.035 55)', color: a.type === 'tick' ? OK : 'oklch(0.58 0.09 45)' }}>
+                  {a.type === 'tick'
+                    ? <svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>
+                    : <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, color: INK, lineHeight: 1.45 }}>
+                    {a.type === 'tick'
+                      ? <span><strong style={{ fontWeight: 500 }}>{a.by || 'Someone'}</strong> checked “{a.text}” for <strong style={{ fontWeight: 500 }}>{a.hire}</strong></span>
+                      : <span>Journey created for <strong style={{ fontWeight: 500 }}>{a.hire}</strong></span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: MUTED, marginTop: '3px' }}>{depts[a.dept] ? depts[a.dept].name : a.dept}{a.at ? ' · ' + fmtDateTime(a.at) : ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '40px', textAlign: 'center', color: MUTED, fontSize: 15 }}>No activity yet — milestone check-offs and new journeys will show up here.</div>
         )}
       </div>
     );
@@ -800,6 +859,7 @@ export default function App() {
   if (searching) content = SearchResults();
   else if (view === 'dept') content = DeptDetail();
   else if (view === 'list') content = ListView();
+  else if (view === 'activity') content = ActivityFeed();
   else if (view === 'journey') content = Journey();
   else content = Overview();
 

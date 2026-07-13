@@ -3,6 +3,9 @@
 .env.local
 .env.production
 
+# Local-only ops / history dossier (internal — never push to the public repo)
+OPS-PRIVATE.md
+
 # Logs
 *.log
 npm-debug.log*

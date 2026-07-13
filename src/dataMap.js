@@ -75,6 +75,7 @@ export function mapNewHires(items) {
       start,
       ref: it.Ref || ('MAGMA-' + it.id),
       reviews: [r30, r60, r90],
+      created: it.createdDateTime || '',
     };
   }
   return out;
@@ -83,19 +84,23 @@ export function mapNewHires(items) {
 export function mapCompletions(items) {
   const checked = {};
   const compIndex = {};
+  const events = []; // ticked milestones, for the Activity feed
   for (const it of items || []) {
     const key = it.Title;
     if (!key) continue;
     checked[key] = !!it.Done;
     compIndex[key] = String(it.id);
+    if (it.Done) {
+      events.push({ key, byName: it.CompletedByName || '', at: it.CompletedAt || it.lastModifiedDateTime || '' });
+    }
   }
-  return { checked, compIndex };
+  return { checked, compIndex, events };
 }
 
 export function mapAll(raw) {
   const depts = mapDepartments(raw.departments);
   const milestones = mapMilestones(raw.milestoneTemplates);
   const emps = mapNewHires(raw.newHires);
-  const { checked, compIndex } = mapCompletions(raw.completions);
-  return { depts, milestones, emps, checked, compIndex };
+  const { checked, compIndex, events } = mapCompletions(raw.completions);
+  return { depts, milestones, emps, checked, compIndex, events };
 }
