@@ -1,0 +1,783 @@
+{
+  "departments": [
+    {
+      "slug": "intake",
+      "name": "Intake",
+      "units": "",
+      "pending": false,
+      "icon": "<circle cx=\"8\" cy=\"9\" r=\"3\"></circle><circle cx=\"16\" cy=\"9\" r=\"3\"></circle><path d=\"M2.5 19c0-3 2.4-5 5.5-5 1.2 0 2.3.3 3.2.9\"></path><path d=\"M12.8 14.9A6 6 0 0 1 16 14c3.1 0 5.5 2 5.5 5\"></path>"
+    },
+    {
+      "slug": "settlement",
+      "name": "Settlement",
+      "units": "RAP, CMS, AC",
+      "pending": false,
+      "icon": "<path d=\"M3 11l9-7 9 7\"></path><path d=\"M5 10v9h14v-9\"></path><path d=\"M10 19v-5h4v5\"></path>"
+    },
+    {
+      "slug": "language",
+      "name": "Language",
+      "units": "",
+      "pending": false,
+      "icon": "<path d=\"M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z\"></path><path d=\"M7 9h10M7 12.5h6\"></path>"
+    },
+    {
+      "slug": "cfs",
+      "name": "Children & Family Services",
+      "units": "CNC, WoW, Community Connections",
+      "pending": false,
+      "icon": "<circle cx=\"8\" cy=\"7\" r=\"2.6\"></circle><path d=\"M4 19v-3a4 4 0 0 1 8 0v3\"></path><circle cx=\"16.5\" cy=\"10\" r=\"2\"></circle><path d=\"M14 19v-2.4a3 3 0 0 1 6 0V19\"></path>"
+    },
+    {
+      "slug": "finance",
+      "name": "Finance",
+      "units": "",
+      "pending": false,
+      "icon": "<rect x=\"3.5\" y=\"11\" width=\"3.6\" height=\"8\" rx=\"1\"></rect><rect x=\"10.2\" y=\"6\" width=\"3.6\" height=\"13\" rx=\"1\"></rect><rect x=\"16.9\" y=\"9\" width=\"3.6\" height=\"10\" rx=\"1\"></rect>"
+    },
+    {
+      "slug": "hr",
+      "name": "HR",
+      "units": "",
+      "pending": false,
+      "icon": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"></rect><circle cx=\"9\" cy=\"11\" r=\"2\"></circle><path d=\"M5.5 16.5c0-1.7 1.6-2.5 3.5-2.5s3.5 .8 3.5 2.5\"></path><path d=\"M15 10h4M15 13h4\"></path>"
+    },
+    {
+      "slug": "it",
+      "name": "IT",
+      "units": "",
+      "pending": true,
+      "icon": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"13\" rx=\"2\"></rect><path d=\"M8 21h8M12 17v4\"></path><path d=\"M7 9l2 2-2 2\"></path><path d=\"M12 13h3\"></path>"
+    },
+    {
+      "slug": "marketing",
+      "name": "Marketing & Communications",
+      "units": "",
+      "pending": false,
+      "icon": "<path d=\"M3 11v2a1 1 0 0 0 1 1h2l3 4V6L6 10H4a1 1 0 0 0-1 1z\"></path><path d=\"M14 8a4 4 0 0 1 0 8\"></path>"
+    }
+  ],
+  "milestones": [
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 0,
+      "text": "Organizational onboarding — HR policies, cybersecurity, structure & goals",
+      "orgWide": true
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 1,
+      "text": "Introduction to MAGMA, community programs, eligibility & referral processes",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 2,
+      "text": "Shadowing intake appointments & client interactions",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 3,
+      "text": "CRM systems, documentation standards & internal procedures",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 4,
+      "text": "Appointment scheduling, file management & communication protocols",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 5,
+      "text": "Supporting client services under supervision",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 1,
+      "sort": 6,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "intake",
+      "month": 2,
+      "sort": 0,
+      "text": "Conducting client follow-ups & service coordination",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 2,
+      "sort": 1,
+      "text": "Reporting & case documentation requirements",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 2,
+      "sort": 2,
+      "text": "Active participation in team meetings & collaboration",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 2,
+      "sort": 3,
+      "text": "Understanding referral pathways & program eligibility",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 2,
+      "sort": 4,
+      "text": "Participation in community events & outreach",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 3,
+      "sort": 0,
+      "text": "Independent Information & Orientation sessions and Needs Assessments",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 3,
+      "sort": 1,
+      "text": "Accurate, timely completion of documentation & reports",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 3,
+      "sort": 2,
+      "text": "Coordination with community partners & service providers",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 3,
+      "sort": 3,
+      "text": "Independent information, referrals & client support",
+      "orgWide": false
+    },
+    {
+      "department": "intake",
+      "month": 3,
+      "sort": 4,
+      "text": "Full participation in daily Intake responsibilities",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 0,
+      "text": "Organizational onboarding — HR policies, cybersecurity, structure & goals",
+      "orgWide": true
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 1,
+      "text": "Organization overview & technology and systems",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 2,
+      "text": "Program overview — RAP, CMS & AC service streams",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 3,
+      "text": "Shadowing activities (role-dependent) & core service-delivery training",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 4,
+      "text": "Service standards, housing & reception services, and financial support",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 5,
+      "text": "Community orientation, documentation & case management",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 1,
+      "sort": 6,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "settlement",
+      "month": 2,
+      "sort": 0,
+      "text": "Manage a small caseload (5–10 clients or families) with supervisor support",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 2,
+      "sort": 1,
+      "text": "Advanced client support",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 2,
+      "sort": 2,
+      "text": "Partner collaboration",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 3,
+      "sort": 0,
+      "text": "Professional development",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 3,
+      "sort": 1,
+      "text": "Competency assessment",
+      "orgWide": false
+    },
+    {
+      "department": "settlement",
+      "month": 3,
+      "sort": 2,
+      "text": "Independent service delivery & final 90-day evaluation",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 1,
+      "sort": 0,
+      "text": "Core onboarding — orientation, HR policies, cybersecurity, health & safety",
+      "orgWide": true
+    },
+    {
+      "department": "language",
+      "month": 1,
+      "sort": 1,
+      "text": "Classroom observation",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 1,
+      "sort": 2,
+      "text": "Familiarization with curriculum & assessment tools",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 1,
+      "sort": 3,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "language",
+      "month": 2,
+      "sort": 0,
+      "text": "Independent lesson delivery with support",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 2,
+      "sort": 1,
+      "text": "Lesson planning & learner assessment practice",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 3,
+      "sort": 0,
+      "text": "Full teaching responsibilities",
+      "orgWide": false
+    },
+    {
+      "department": "language",
+      "month": 3,
+      "sort": 1,
+      "text": "Independent learner progress reporting",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 1,
+      "sort": 0,
+      "text": "Core onboarding — confidentiality, safety, trauma-informed practice, HR & technology",
+      "orgWide": true
+    },
+    {
+      "department": "cfs",
+      "month": 1,
+      "sort": 1,
+      "text": "Orientation to safeguarding policies & the settlement sector",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 1,
+      "sort": 2,
+      "text": "Team roles (SWIS, HIPPY, Youth Integration, Women’s Wellness) & referral pathways",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 1,
+      "sort": 3,
+      "text": "Shadowing & supervised client engagement",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 1,
+      "sort": 4,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "cfs",
+      "month": 2,
+      "sort": 0,
+      "text": "Supporting clients with guidance — needs assessments, goal setting & service planning",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 2,
+      "sort": 1,
+      "text": "Applying strengths-based, anti-oppressive & trauma-informed approaches",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 2,
+      "sort": 2,
+      "text": "Involvement in program delivery (group sessions, school support, home visits)",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 2,
+      "sort": 3,
+      "text": "Documentation, data entry & outcomes tracking",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 3,
+      "sort": 0,
+      "text": "Independently managing a caseload or program responsibilities",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 3,
+      "sort": 1,
+      "text": "Effective case management, advocacy & client empowerment",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 3,
+      "sort": 2,
+      "text": "Leading or co-facilitating programs",
+      "orgWide": false
+    },
+    {
+      "department": "cfs",
+      "month": 3,
+      "sort": 3,
+      "text": "Partner collaboration with schools, healthcare & community",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 0,
+      "text": "Core onboarding — orientation, HR policies, cybersecurity, health & safety",
+      "orgWide": true
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 1,
+      "text": "Key functions of Sage Intacct",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 2,
+      "text": "Procurement procedures",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 3,
+      "text": "Bookkeeping functions",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 4,
+      "text": "Bank reconciliation",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 1,
+      "sort": 5,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "finance",
+      "month": 2,
+      "sort": 0,
+      "text": "Funding claims financial review",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 2,
+      "sort": 1,
+      "text": "Payroll reconciliation",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 2,
+      "sort": 2,
+      "text": "Cost analysis & review",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 2,
+      "sort": 3,
+      "text": "Cashflows",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 3,
+      "sort": 0,
+      "text": "Budgeting & forecasting",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 3,
+      "sort": 1,
+      "text": "Department financial reporting",
+      "orgWide": false
+    },
+    {
+      "department": "finance",
+      "month": 3,
+      "sort": 2,
+      "text": "Reports for the Board",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 1,
+      "sort": 0,
+      "text": "Complete organizational onboarding and understand HR policies, systems, and structure",
+      "orgWide": true
+    },
+    {
+      "department": "hr",
+      "month": 1,
+      "sort": 1,
+      "text": "Support core HR activities (recruitment coordination, documentation, payroll support)",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 1,
+      "sort": 2,
+      "text": "Learn and navigate HRIS (ADP); assist with data entry and employee updates",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 1,
+      "sort": 3,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 0,
+      "text": "Increase responsibility in recruitment and onboarding processes",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 1,
+      "text": "Support payroll and produce basic HR reports/metrics",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 2,
+      "text": "Process employee lifecycle transactions (Joiner, Mover, Leaver) and maintain records",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 3,
+      "text": "Respond to routine employee and manager inquiries (with guidance)",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 4,
+      "text": "Coordinate onboarding logistics (scheduling, documentation, system follow-ups)",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 5,
+      "text": "Ensure accuracy and compliance in HR data updates and record-keeping",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 2,
+      "sort": 6,
+      "text": "File and maintain employee records (physical and digital), ensuring confidentiality and archive knowledge",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 0,
+      "text": "Manage recruitment and onboarding with minimal supervision",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 1,
+      "text": "Own HR records management and HRIS administration independently",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 2,
+      "text": "Support full employee lifecycle, including reporting and compliance (e.g., ROEs)",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 3,
+      "text": "Understand benefits administration (Sun Life, parking, RRSP)",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 4,
+      "text": "Understand performance review process expectations",
+      "orgWide": false
+    },
+    {
+      "department": "hr",
+      "month": 3,
+      "sort": 5,
+      "text": "Work independently on routine tasks; escalate complex issues as needed",
+      "orgWide": false
+    },
+    {
+      "department": "it",
+      "month": 1,
+      "sort": 0,
+      "text": "Organizational onboarding — HR policies, cybersecurity, structure & goals",
+      "orgWide": true
+    },
+    {
+      "department": "it",
+      "month": 1,
+      "sort": 1,
+      "text": "Department-specific milestones — awaiting input from IT",
+      "orgWide": false
+    },
+    {
+      "department": "it",
+      "month": 1,
+      "sort": 2,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "it",
+      "month": 2,
+      "sort": 0,
+      "text": "Awaiting input from IT",
+      "orgWide": false
+    },
+    {
+      "department": "it",
+      "month": 3,
+      "sort": 0,
+      "text": "Awaiting input from IT",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 0,
+      "text": "Completion of core onboarding — orientation, HR policies, cybersecurity, health & safety",
+      "orgWide": true
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 1,
+      "text": "Introduction to organizational brand guidelines & communications processes",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 2,
+      "text": "Familiarization with programs and services",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 3,
+      "text": "Shadowing content creation, social media management & graphic design",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 4,
+      "text": "Photography, event planning & community outreach activities",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 1,
+      "sort": 5,
+      "text": "Cross-Cultural Training",
+      "orgWide": true
+    },
+    {
+      "department": "marketing",
+      "month": 2,
+      "sort": 0,
+      "text": "Creating communications content with guidance — social media, newsletters, website updates & promotional materials",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 2,
+      "sort": 1,
+      "text": "Assisting in the development of the communications & marketing calendar",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 2,
+      "sort": 2,
+      "text": "Supporting event planning and promotion",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 2,
+      "sort": 3,
+      "text": "Collaborating with vendors on marketing materials & projects",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 2,
+      "sort": 4,
+      "text": "Learning approval processes & digital communication tools",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 0,
+      "text": "Independently managing routine content creation & communications activities",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 1,
+      "text": "Coordinating the communications & marketing calendar",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 2,
+      "text": "Collaborating with internal departments & external vendors",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 3,
+      "text": "Supporting the planning & execution of events and campaigns",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 4,
+      "text": "Contributing to media & community engagement initiatives",
+      "orgWide": false
+    },
+    {
+      "department": "marketing",
+      "month": 3,
+      "sort": 5,
+      "text": "Monitoring and reporting on communications performance & engagement metrics",
+      "orgWide": false
+    }
+  ]
+}

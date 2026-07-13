@@ -1,0 +1,42 @@
+========================================
+MAGMA Onboarding Tracker — Environment Notes
+Owner: Abhishek Desai (IT Admin & Global Admin)
+========================================
+
+TENANT
+------
+Tenant name:         magmaamgmorg
+Root SharePoint URL: https://magmaamgmorg.sharepoint.com
+SharePoint admin:    https://magmaamgmorg-admin.sharepoint.com
+Email domain:        magma-amgm.org
+Notification inbox:  info@magma-amgm.org  (or HR: lara.falana@magma-amgm.org)
+
+NAMING (slug = onboarding)
+--------------------------
+SharePoint site:     https://magmaamgmorg.sharepoint.com/sites/App-OnboardingTracker
+GitHub repo:         magma-onboarding-tracker
+Pages URL:           https://<github-user>.github.io/magma-onboarding-tracker/
+Entra app reg:       MAGMA Onboarding Tracker   (client id -> .env / GitHub secrets)
+Hub:                 MAGMA Systems  (associate this site to it)
+
+SECURITY GROUPS
+---------------
+MAGMA-Onboarding-Admins     -> HR (see everyone; can assign journeys)
+MAGMA-Onboarding-Managers   -> managers (see only their own department/unit)
+MAGMA-Onboarding-Users      -> new hires (see only their own journey)
+
+SHAREPOINT LISTS (in the site above)
+------------------------------------
+Departments, MilestoneTemplates, NewHires, MilestoneCompletions
+(schema in docs/Onboarding-Build-Guide.md)
+
+ENV VARS (.env locally, GitHub Actions secrets in CI)
+-----------------------------------------------------
+VITE_AZURE_CLIENT_ID      = <Entra app client id>
+VITE_AZURE_TENANT_ID      = <tenant id>
+VITE_SHAREPOINT_SITE_URL  = https://magmaamgmorg.sharepoint.com/sites/App-OnboardingTracker
+
+GRAPH SCOPES
+------------
+Sites.ReadWrite.All, User.Read, User.ReadBasic.All, GroupMember.Read.All
+(Global Admin self-consents in Entra > App registrations > API permissions > Grant admin consent)
