@@ -192,9 +192,11 @@ site permissions · GitHub repo + Pages CI · **Phase 3** — MSAL sign-in gate,
 reads/writes, role-from-groups scoping, milestone ticking, in-app journey creation.
 
 **Pending / next:**
-- **Power Automate (Phase 5):** on `NewHires` create, auto-add the new hire to
-  `MAGMA-OnboardingTracker-Users` (needs the hire to have an Entra account first; the "Add
-  member to group" action runs under a service identity so managers need no directory rights).
+- **Power Automate (Phase 5):** full build runbook + branded email templates are in
+  `docs/PowerAutomate-Flows.md`. Two flows — (A) on `NewHires` create: auto-add the hire to the
+  Users group + welcome email to the hire + assignment email to the manager (HR CC'd); (B) on
+  `MilestoneCompletions` change: a one-time completion email when the hire hits 100% (guarded by
+  the `CompletedNotified` column). Needs the hire to have an Entra account first.
 - Capture **ManagerUpn** in the New-journey modal (currently only manager *name* is stored, so
   manager-scoping matches nothing until UPNs exist; HireUpn is captured via the email field).
 - Manager **reassignment** UI (the manager field is currently read-only/display).

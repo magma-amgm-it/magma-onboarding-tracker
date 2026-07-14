@@ -46,6 +46,7 @@ Write-Host "[3/3] Adding columns..." -ForegroundColor Cyan
 Add-TextColumn 'NewHires'             'ManagerName'
 Add-TextColumn 'NewHires'             'ManagerUpn'
 Add-TextColumn 'NewHires'             'HireUpn'
+Add-TextColumn 'NewHires'             'CompletedNotified'
 Add-TextColumn 'MilestoneCompletions' 'CompletedByName'
 
 Write-Host "`nDone - schema ready for the app." -ForegroundColor Green
