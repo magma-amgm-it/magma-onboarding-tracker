@@ -62,20 +62,29 @@ URIs registered: the live GitHub Pages URL and `http://localhost:5173/magma-onbo
 ## 5. Roles & access model
 
 Role is derived at runtime from the signed-in user's security-group membership (via
-`/me/memberOf`). The three groups and what they map to:
+`/me/memberOf`). **Five roles**, precedence highest-wins: **Admin > HR > Exec > Manager > New hire.**
+Each person gets exactly ONE fixed view — there is no self-serve view switching **except** the
+IT Admin, who has a "preview as" switcher for support/testing.
 
-| Security group | App role | Site permission | Can do |
-|---|---|---|---|
-| `MAGMA-OnboardingTracker-Admins` | `hr` | Full Control | See everything, create journeys, tick milestones |
-| `MAGMA-OnboardingTracker-Managers` | `manager` | Contribute | See their hires, tick/verify milestones |
-| `MAGMA-OnboardingTracker-Users` | `employee` | **Read** | See only their own journey, **read-only** |
+| Security group | App role | Site perm | Sees | Can create/edit | Can tick | Switcher |
+|---|---|---|---|---|---|---|
+| `MAGMA-OnboardingTracker-Admins` | `admin` (IT) | Full Control | everything | yes | yes | **yes** |
+| `MAGMA-OnboardingTracker-HR` | `hr` | Contribute | everything | yes (create/edit/reassign) | **no** | no |
+| `MAGMA-OnboardingTracker-Execs` | `exec` | Read | everything | no (read-only oversight) | no | no |
+| `MAGMA-OnboardingTracker-Managers` | `manager` | Contribute | **only their own assigned hires** (grouped by dept) | create (auto-self as mgr) | yes | no |
+| `MAGMA-OnboardingTracker-Users` | `employee` | Read | only their own journey | no | no | no |
 
-**Security principle:** the SharePoint site permission is the *real* boundary (server-side).
-The UI role-scoping is convenience. New hires get **Read**, so even if the UI were bypassed,
-a write to `MilestoneCompletions` is refused server-side — the manager is the one who verifies
-and ticks. SharePoint permissions are list-level, not row-level, so a manager can technically
-reach other rows via Graph; a hard row-level boundary would need a Power Automate/Function proxy
-(tracked as future work). Group object IDs and membership: see `OPS-PRIVATE.md`.
+Key rules: **HR never ticks** — ticking is verification, which is the manager's job. **Managers
+see only the hires where they are the named reporting manager** (matched by `ManagerUpn` = their
+email), so no manager→department mapping is needed. **Execs are read-only.** A new hire's identity
+match uses `HireUpn`. The IT Admin's preview switcher can view any role, and for manager/new-hire
+it has a dropdown to pick whose view to preview.
+
+**Security principle:** the SharePoint site permission is the *real* boundary (server-side); the UI
+scoping is convenience. Read-only roles (Exec, New hire) are enforced by the **Read** grant — writes
+are refused server-side. SharePoint permissions are list-level, not row-level, so a Contribute user
+can technically reach other rows via Graph; a hard row-level boundary would need a Power
+Automate/Function proxy (future work). Group object IDs and membership: see `OPS-PRIVATE.md`.
 
 Admins also get a **"view as"** switch in the top bar to preview the Manager / New-hire layouts.
 

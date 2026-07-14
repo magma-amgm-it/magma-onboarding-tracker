@@ -15,10 +15,12 @@ designer — so follow the steps. ~15–20 min total.
 
 1. **Add the guard column.** Re-run `Add-OnboardingColumns.ps1` — it now also adds
    `CompletedNotified` (text) on `NewHires`, which Flow B uses so the completion email fires only once.
-2. **Shared mailbox** the emails send from — e.g. `onboarding@magma-amgm.org` (referred to below as
-   `<SHARED_MAILBOX>`). The account that authorizes the flow's **Office 365 Outlook** connection
-   must have **Send-as** on this mailbox (or own it).
-3. **HR copy address** — the mailbox to CC on new journeys, e.g. `hr@magma-amgm.org` (`<HR_MAILBOX>`).
+2. **Sending mailbox:** `notifications@magma-amgm.org`. The flow's **Office 365 Outlook** connection
+   is authorized by **your** account (Abhishek), and every *Send an email (V2)* action sets its
+   **From (Send as)** field to `notifications@magma-amgm.org`. Confirm your account has **Send-as**
+   on that mailbox (Exchange admin center → `notifications@magma-amgm.org` → *Delegation* →
+   *Send as* → add your account). Without Send-as, the flow errors when it tries to send.
+3. **HR copy address:** `HRMAGMA@magma-amgm.org` (the *MAGMA HR* shared mailbox) — CC'd on new journeys.
 4. **Group-add permission.** Flow A adds people to the Users security group, so the account that
    authorizes the flow's **Azure AD** connection must be allowed to modify that group — the simplest
    route is to make that account an **Owner** of `MAGMA-OnboardingTracker-Users` (Entra → Groups →
@@ -35,10 +37,16 @@ designer — so follow the steps. ~15–20 min total.
 
 **Trigger:** SharePoint → *When an item is created* → Site Address = the site above, List = `NewHires`.
 
+> **Two things about the dynamic-content picker:**
+> 1. Our text columns (`HireUpn`, `ManagerUpn`, `ManagerName`, `CompletedNotified`) appear **below**
+>    `StartDate` / the review dates — scroll down, or type the name in the panel's **Search** box.
+> 2. **Do NOT use `Manager Email` / `Manager DisplayName`** — those belong to the old unused *person*
+>    column and are always **blank**. Always use the text columns `ManagerUpn` / `ManagerName` / `HireUpn`.
+
 **Step 1 — resolve the new hire's account (for the group-add).**
-- Add a **Condition**: `HireUpn` **is not equal to** (empty). Put steps 2–3 in the **If yes** branch
-  (skip the group-add when no email was captured).
 - Office 365 Users → *Get user profile (V2)* → User (UPN) = `HireUpn`. (Gives you the user **Id**.)
+- *(Optional guard, skip for a first build: wrap the group-add in a Condition `HireUpn is not equal to`
+  empty. Not needed — the app's people-pickers already guarantee a real email.)*
 
 **Step 2 — add them to the Users group.**
 - Azure AD → *Add user to group*:
@@ -47,9 +55,9 @@ designer — so follow the steps. ~15–20 min total.
 
 **Step 3 — email the new hire (welcome).**
 - Office 365 Outlook → *Send an email (V2)*:
-  - **From (Send as):** `<SHARED_MAILBOX>`
+  - **From (Send as):** `notifications@magma-amgm.org`
   - **To:** `HireUpn`
-  - **CC:** `<HR_MAILBOX>`
+  - **CC:** `HRMAGMA@magma-amgm.org`
   - **Subject:** `Welcome to MAGMA — your onboarding starts here`
   - **Body:** switch the body editor to code view (`</>`) and paste the **Welcome** template below;
     map the `[[...]]` placeholders to dynamic content.
@@ -57,7 +65,7 @@ designer — so follow the steps. ~15–20 min total.
 **Step 4 — email the manager (assignment).** (outside the condition; runs for every creation)
 - Add a **Condition**: `ManagerUpn` **is not equal to** (empty). In **If yes**:
 - Office 365 Outlook → *Send an email (V2)*:
-  - **From:** `<SHARED_MAILBOX>` · **To:** `ManagerUpn` · **CC:** `<HR_MAILBOX>`
+  - **From:** `notifications@magma-amgm.org` · **To:** `ManagerUpn` · **CC:** `HRMAGMA@magma-amgm.org`
   - **Subject:** `You've been assigned a new hire — [[NewHireName]]`
   - **Body:** the **Assignment** template below.
 
@@ -93,7 +101,7 @@ Placeholder → dynamic field map: `[[NewHireName]]` = `Title`, `[[ManagerName]]
 **Step 6 — if done, email + stamp.**
 - **Condition:** **done** `is greater than or equal to` **total**, AND **total** `is greater than` 0.
 - **If yes:**
-  1. Office 365 Outlook → *Send an email (V2)*: From `<SHARED_MAILBOX>`, To `HireUpn`,
+  1. Office 365 Outlook → *Send an email (V2)*: From `notifications@magma-amgm.org`, To `HireUpn`,
      CC `ManagerUpn;<HR_MAILBOX>`, Subject `[[NewHireName]] has completed onboarding`,
      Body = the **Completion** template below.
   2. SharePoint → *Update item* → `NewHires`, Id = hireId, `CompletedNotified` = `utcNow()`

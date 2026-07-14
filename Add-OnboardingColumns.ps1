@@ -31,8 +31,12 @@ $site = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0
 $sid = $site.id
 
 function Add-TextColumn([string]$listName, [string]$colName) {
-    $existing = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/sites/$sid/lists/$listName/columns?`$filter=name eq '$colName'"
-    if ($existing.value -and $existing.value.Count -gt 0) {
+    # Fetch ALL columns and check the name client-side. The Graph columns endpoint ignores
+    # $filter, so the old "?$filter=name eq" check returned every column and falsely reported
+    # "already exists" for everything -- meaning nothing actually got created.
+    $all = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/sites/$sid/lists/$listName/columns?`$top=200"
+    $names = @($all.value | ForEach-Object { $_.name })
+    if ($names -contains $colName) {
         Write-Host ("      - " + $listName + "." + $colName + " already exists, skipping.") -ForegroundColor Yellow
         return
     }

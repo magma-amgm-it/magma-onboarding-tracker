@@ -12,14 +12,19 @@ import { mapAll } from './dataMap.js';
 /* ---- role ← security group membership ---- */
 const GROUPS = {
   admin: 'MAGMA-OnboardingTracker-Admins',
+  hr: 'MAGMA-OnboardingTracker-HR',
+  exec: 'MAGMA-OnboardingTracker-Execs',
   manager: 'MAGMA-OnboardingTracker-Managers',
   user: 'MAGMA-OnboardingTracker-Users',
 };
+// Precedence: Admin > HR > Exec > Manager > New hire (highest access wins).
 function roleFromGroups(names) {
   const set = new Set(names || []);
-  if (set.has(GROUPS.admin)) return 'hr';
-  if (set.has(GROUPS.manager)) return 'manager';
-  if (set.has(GROUPS.user)) return 'employee';
+  if (set.has(GROUPS.admin)) return 'admin';      // IT super-user — the only role with the preview switcher
+  if (set.has(GROUPS.hr)) return 'hr';            // HR: manages all journeys, but does not tick milestones
+  if (set.has(GROUPS.exec)) return 'exec';        // CEO / MD: read-only oversight
+  if (set.has(GROUPS.manager)) return 'manager';  // sees only their own assigned hires; ticks them
+  if (set.has(GROUPS.user)) return 'employee';    // own journey, read-only
   return null;
 }
 
@@ -127,6 +132,8 @@ export default function App() {
   const [month, setMonth] = useState(1);
   const [listFilter, setListFilter] = useState(null);
   const [query, setQuery] = useState('');
+  const [previewMgr, setPreviewMgr] = useState('');     // IT-admin: which manager's view to preview
+  const [previewHire, setPreviewHire] = useState(null); // IT-admin: which new hire's view to preview
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignStep, setAssignStep] = useState('form'); // form | saving | done
@@ -215,47 +222,59 @@ export default function App() {
   const events = data.events || [];
   const allDepts = Object.keys(depts);
 
-  /* data-bound helpers (were in data.js; now close over live data) */
-  const empsIn = (dept) => Object.keys(emps).filter((id) => emps[id].dept === dept);
+  /* ---- identity → which hires this (effective) role can see ---- */
+  const myUpn = (me.upn || me.email || '').toLowerCase();
+  const isITAdmin = myRole === 'admin';                 // only the IT admin gets the preview switcher
+  const myHireId = Object.keys(emps).find((id) => emps[id].hireUpn && emps[id].hireUpn === myUpn) || null;
+  const myManagedIds = Object.keys(emps).filter((id) => emps[id].managerUpn && emps[id].managerUpn === myUpn);
+
+  // distinct managers, for the IT-admin "preview as manager" picker
+  const managerList = Object.keys(emps).reduce((acc, id) => {
+    const u = emps[id].managerUpn;
+    if (u && !acc.some((m) => m.upn === u)) acc.push({ upn: u, name: emps[id].manager || u });
+    return acc;
+  }, []);
+  const previewManagerUpn = previewMgr || (managerList[0] ? managerList[0].upn : '');
+  const previewHireId = previewHire || (Object.keys(emps)[0] || null);
+
+  const isEmployee = role === 'employee';
+  const isManager = role === 'manager';
+  const seesAll = role === 'admin' || role === 'hr' || role === 'exec';
+
+  let visibleEmpIds;
+  if (seesAll) {
+    visibleEmpIds = Object.keys(emps);
+  } else if (isManager) {
+    const upn = isITAdmin ? previewManagerUpn : myUpn;
+    visibleEmpIds = Object.keys(emps).filter((id) => emps[id].managerUpn && emps[id].managerUpn === upn);
+  } else { // employee
+    const eid = isITAdmin ? previewHireId : myHireId;
+    visibleEmpIds = eid ? [eid] : [];
+  }
+
+  /* data-bound helpers, scoped to what this person can see */
+  const empsIn = (dept) => visibleEmpIds.filter((id) => emps[id].dept === dept);
   const totalOf = (id) => { const m = milestones[emps[id].dept] || {}; return (m[1]?.length || 0) + (m[2]?.length || 0) + (m[3]?.length || 0); };
   const doneOf = (ck, id) => { let n = 0; for (const k in ck) { if (ck[k] && k.split('|')[0] === id) n++; } return n; };
   const pctOf = (ck, id) => { const t = totalOf(id); return t ? Math.round(doneOf(ck, id) / t * 100) : 0; };
   const deptAvg = (ck, dept) => { const ids = empsIn(dept); if (!ids.length) return 0; return Math.round(ids.reduce((a, id) => a + pctOf(ck, id), 0) / ids.length); };
 
-  /* identity → who this person can see */
-  const myUpn = (me.upn || me.email || '').toLowerCase();
-  const isAdmin = myRole === 'hr';
-  const myHireId = Object.keys(emps).find((id) => emps[id].hireUpn && emps[id].hireUpn === myUpn) || null;
-  const myManagedIds = Object.keys(emps).filter((id) => emps[id].managerUpn && emps[id].managerUpn === myUpn);
-  // admin "view as" samples so the manager/new-hire layouts are demoable with real data
-  const sampleHireId = Object.keys(emps)[0] || null;
-  const previewDept = allDepts.slice().sort((a, b) => empsIn(b).length - empsIn(a).length)[0] || null;
-
-  const isEmployee = role === 'employee';
-  const empSubjectId = isEmployee ? (isAdmin ? sampleHireId : myHireId) : null;
-
-  let scopeEmps, scopeDepts;
-  if (role === 'hr') {
-    scopeEmps = Object.keys(emps); scopeDepts = allDepts;
-  } else if (role === 'manager') {
-    const ids = isAdmin ? (previewDept ? empsIn(previewDept) : []) : myManagedIds;
-    scopeEmps = ids;
-    scopeDepts = [...new Set(ids.map((id) => emps[id].dept).filter((d) => depts[d]))];
-    if (!scopeDepts.length && isAdmin && previewDept) scopeDepts = [previewDept];
-  } else { // employee
-    scopeEmps = empSubjectId ? [empSubjectId] : [];
-    scopeDepts = empSubjectId ? [emps[empSubjectId].dept] : [];
-  }
-
+  const scopeEmps = visibleEmpIds;
+  const scopeDepts = seesAll ? allDepts : [...new Set(visibleEmpIds.map((id) => emps[id].dept).filter((d) => depts[d]))];
+  const empSubjectId = isEmployee ? (isITAdmin ? previewHireId : myHireId) : null;
   const primaryDept = scopeDepts[0] || null;
-  const rm = role === 'employee'
-    ? { name: empSubjectId ? emps[empSubjectId].name : me.name, roleLabel: (empSubjectId && depts[emps[empSubjectId].dept] ? depts[emps[empSubjectId].dept].name + ' · ' : '') + 'New hire', empId: empSubjectId, dept: empSubjectId ? emps[empSubjectId].dept : null }
-    : role === 'manager'
-      ? { name: me.name, roleLabel: (scopeDepts.length === 1 && depts[primaryDept] ? depts[primaryDept].name : 'Team') + ' · Manager', dept: primaryDept }
-      : { name: me.name, roleLabel: 'HR · Admin' };
 
-  const meCard = { name: me.name, roleLabel: rm.roleLabel, initials: ini(me.name || 'You') };
-  const canTick = role !== 'employee'; // HR + managers verify/tick; new hires are read-only
+  const roleTitle = { admin: 'Admin · IT', hr: 'HR', exec: 'Executive · read-only', manager: 'Manager', employee: 'New hire' }[role] || '';
+  const contextLabel = { admin: 'All departments', hr: 'All departments', exec: 'Oversight · read-only', manager: 'Your new hires', employee: 'Your onboarding' }[role] || '';
+  const rm = isEmployee
+    ? { name: empSubjectId ? emps[empSubjectId].name : me.name, roleLabel: roleTitle, empId: empSubjectId, dept: empSubjectId ? emps[empSubjectId].dept : null }
+    : { name: me.name, roleLabel: roleTitle, dept: primaryDept };
+
+  const meCard = { name: me.name, roleLabel: roleTitle, initials: ini(me.name || 'You') };
+  // capabilities. Ticking = verification = the manager's job (admin can too, for support). HR never ticks.
+  const canTick = role === 'admin' || role === 'manager';
+  const canCreate = role === 'admin' || role === 'hr' || role === 'manager';
+  const canReassign = role === 'admin' || role === 'hr';
   const mgrOf = (id) => emps[id].manager || '—';
 
   const goHome = () => { setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); };
@@ -372,7 +391,7 @@ export default function App() {
   );
 
   /* ---- topbar ---- */
-  const roleTabs = [['hr', 'HR'], ['manager', 'Manager'], ['employee', 'New hire']];
+  const roleTabs = [['admin', 'Admin'], ['hr', 'HR'], ['exec', 'Exec'], ['manager', 'Manager'], ['employee', 'New hire']];
   const openAssign = () => {
     const d0 = allDepts[0] || '';
     setAssignDept(d0); setAssignUnit((depts[d0] && depts[d0].units[0]) || '');
@@ -389,16 +408,29 @@ export default function App() {
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search new hires, departments…" style={{ width: '100%', padding: '9px 32px 9px 34px', borderRadius: 10, background: 'oklch(0.945 0.015 72)', border: '1px solid oklch(0.88 0.012 70)', color: INK, fontSize: 14, outline: 'none' }} />
         {searching && <span onClick={() => setQuery('')} style={{ position: 'absolute', right: 11, top: 7, cursor: 'pointer', color: MUTED, fontSize: 16, lineHeight: 1 }}>×</span>}
       </div>
+      <span style={{ fontSize: 13, color: MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contextLabel}</span>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} title="Preview each role (you're an admin)">
-            {roleTabs.map(([id, label]) => {
-              const a = role === id;
-              return <button key={id} onClick={() => switchRole(id)} style={{ border: `1px solid ${a ? INK : 'oklch(0.88 0.012 70)'}`, cursor: 'pointer', fontSize: 14.5, fontWeight: 500, padding: '6px 13px', borderRadius: 999, background: a ? INK : 'oklch(0.985 0.006 80)', color: a ? 'oklch(0.965 0.012 75)' : 'oklch(0.44 0.010 60)', transition: 'all .15s ease' }}>{label}</button>;
-            })}
+        {isITAdmin && (
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }} title="Preview each role (IT admin only)">
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              {roleTabs.map(([id, label]) => {
+                const a = role === id;
+                return <button key={id} onClick={() => switchRole(id)} style={{ border: `1px solid ${a ? INK : 'oklch(0.88 0.012 70)'}`, cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '5px 11px', borderRadius: 999, background: a ? INK : 'oklch(0.985 0.006 80)', color: a ? 'oklch(0.965 0.012 75)' : 'oklch(0.44 0.010 60)', transition: 'all .15s ease' }}>{label}</button>;
+              })}
+            </div>
+            {role === 'manager' && managerList.length > 0 && (
+              <select value={previewManagerUpn} onChange={(e) => setPreviewMgr(e.target.value)} style={{ fontSize: 13.5, padding: '6px 8px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.985 0.006 80)', color: INK, cursor: 'pointer', maxWidth: 170 }}>
+                {managerList.map((m) => <option key={m.upn} value={m.upn}>{m.name}</option>)}
+              </select>
+            )}
+            {role === 'employee' && Object.keys(emps).length > 0 && (
+              <select value={previewHireId || ''} onChange={(e) => setPreviewHire(e.target.value)} style={{ fontSize: 13.5, padding: '6px 8px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.985 0.006 80)', color: INK, cursor: 'pointer', maxWidth: 170 }}>
+                {Object.keys(emps).map((id) => <option key={id} value={id}>{emps[id].name}</option>)}
+              </select>
+            )}
           </div>
         )}
-        {role !== 'employee' && (
+        {canCreate && (
           <button onClick={openAssign} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 15, fontWeight: 500, padding: '8px 15px', borderRadius: 999, background: INK, color: 'oklch(0.965 0.012 75)', display: 'flex', alignItems: 'center', gap: '7px' }}>
             <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New journey
           </button>
@@ -408,10 +440,14 @@ export default function App() {
   );
 
   /* ---- overview ---- */
-  const ovEyebrow = { hr: 'The onboarding journey · MAGMA', manager: 'Your department · MAGMA', employee: 'Welcome to MAGMA' }[role];
-  const ovTitle = role === 'manager' ? (depts[primaryDept] ? depts[primaryDept].name : 'Your') : (role === 'hr' ? 'New hire onboarding,' : 'Your first');
-  const ovTitleEm = { hr: 'every department.', manager: 'team.', employee: 'ninety days.' }[role];
-  const ovLede = { hr: 'A quiet, shared view of where each new hire is across their first ninety days — Month 1 to 3, color only where it matters.', manager: 'Track your new hires through their Month 1–3 milestones and verify completed work at each review checkpoint.', employee: 'Your manager checks off milestones as they verify your completed work. Follow your progress here across your first ninety days.' }[role];
+  const ovEyebrow = isEmployee ? 'Welcome to MAGMA' : isManager ? 'Your new hires · MAGMA' : 'The onboarding journey · MAGMA';
+  const ovTitle = isEmployee ? 'Your first' : isManager ? 'Your' : 'New hire onboarding,';
+  const ovTitleEm = isEmployee ? 'ninety days.' : isManager ? 'team.' : 'every department.';
+  const ovLede = isEmployee
+    ? 'Your manager checks off milestones as they verify your completed work. Follow your progress here across your first ninety days.'
+    : isManager
+      ? 'Track your new hires through their Month 1–3 milestones and verify completed work at each review checkpoint.'
+      : 'A quiet, shared view of where each new hire is across their first ninety days — Month 1 to 3, color only where it matters.';
 
   const footStats = isEmployee
     ? [{ label: 'Completion', value: overallPct + '%', color: overallColor }, { label: 'Milestones', value: rm.empId ? doneOf(checked, rm.empId) + '/' + totalOf(rm.empId) : '0/0', color: INK }, { label: 'Reviews', value: '30·60·90', color: INK }, { label: 'Department', value: rm.dept && depts[rm.dept] ? depts[rm.dept].name : '—', color: INK }]
@@ -699,7 +735,7 @@ export default function App() {
     });
 
     const backFromJourney = () => isEmployee ? goHome() : cameFromList ? setView('list') : setView('dept');
-    const canReassign = role === 'hr';
+    // canReassign is defined at component scope (admin + HR)
 
     return (
       <div style={{ padding: '40px 48px 72px', maxWidth: 980 }}>
@@ -884,8 +920,8 @@ export default function App() {
                 <path d="M16 26.5 l6.5 6.5 L37 18.5" fill="none" stroke={OK} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ strokeDasharray: 34, strokeDashoffset: 34, animation: 'drawStroke .32s ease forwards .5s' }} />
               </svg>
             </div>
-            <div className="rise" style={{ textAlign: 'center', fontSize: 13.5, letterSpacing: '0.02em', color: 'oklch(0.52 0.07 150)', marginBottom: '6px', animationDelay: '.15s' }}>Journey created</div>
-            <h3 className="rise" style={{ textAlign: 'center', fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: '0 0 6px', animationDelay: '.2s' }}>Saved to SharePoint</h3>
+            <div className="rise" style={{ textAlign: 'center', fontSize: 13.5, letterSpacing: '0.02em', color: 'oklch(0.52 0.07 150)', marginBottom: '6px', animationDelay: '.15s' }}>All set</div>
+            <h3 className="rise" style={{ textAlign: 'center', fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: '0 0 6px', animationDelay: '.2s' }}>Onboarding journey created</h3>
             <p className="rise" style={{ textAlign: 'center', fontSize: 15, color: 'oklch(0.44 0.010 60)', lineHeight: 1.5, margin: '0 0 18px', animationDelay: '.25s' }}>
               <strong style={{ color: INK }}>{assignHire ? assignHire.name : 'The new hire'}</strong>{assignPos ? ' · ' + assignPos : ''}{unitTxtA} in {aDept.name}. Their Month 1–3 checklist is generated from the department template and now appears in the list.
             </p>
