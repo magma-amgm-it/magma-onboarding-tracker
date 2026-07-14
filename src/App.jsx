@@ -317,7 +317,7 @@ export default function App() {
       <div onClick={goHome} style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '26px', padding: '0 4px', cursor: 'pointer' }}>
         <img src={RING} alt="MAGMA" style={{ width: 26, height: 26, flex: 'none' }} />
         <div style={{ lineHeight: 1.05 }}>
-          <div style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 18, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Onboarding</div>
+          <div style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 17, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Onboarding Tracker</div>
           <div style={{ fontSize: 11, letterSpacing: '0.14em', color: BRAND, fontWeight: 700 }}>MAGMA · AMGM</div>
         </div>
       </div>
@@ -376,17 +376,14 @@ export default function App() {
   const openAssign = () => {
     const d0 = allDepts[0] || '';
     setAssignDept(d0); setAssignUnit((depts[d0] && depts[d0].units[0]) || '');
-    setAssignHire(null); setAssignPos(''); setAssignManagerP(null);
+    setAssignHire(null); setAssignPos('');
+    // Managers default themselves as the reporting manager (editable); HR starts empty.
+    setAssignManagerP(role === 'manager' ? { name: me.name, upn: myUpn, mail: me.email || myUpn } : null);
     setAssignStart(new Date().toISOString().slice(0, 10));
     setAssignStep('form'); setAssignOpen(true);
   };
   const Topbar = () => (
     <div style={{ padding: '14px 30px', borderBottom: '1px solid oklch(0.88 0.012 70)', display: 'flex', alignItems: 'center', gap: '16px', flex: 'none' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '9px', flex: 'none' }}>
-        <img src={RING} alt="MAGMA" style={{ width: 22, height: 22 }} />
-        <span style={{ fontSize: 13.5, letterSpacing: '0.16em', color: BRAND, fontWeight: 700 }}>MAGMA</span>
-      </div>
-      <div style={{ width: 1, height: 24, background: 'oklch(0.88 0.012 70)', flex: 'none' }}></div>
       <div style={{ position: 'relative', flex: 1, maxWidth: 290 }}>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 12, top: 10, opacity: 0.45 }}><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.4"></circle><path d="m11 11 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"></path></svg>
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search new hires, departments…" style={{ width: '100%', padding: '9px 32px 9px 34px', borderRadius: 10, background: 'oklch(0.945 0.015 72)', border: '1px solid oklch(0.88 0.012 70)', color: INK, fontSize: 14, outline: 'none' }} />
@@ -401,7 +398,7 @@ export default function App() {
             })}
           </div>
         )}
-        {role === 'hr' && (
+        {role !== 'employee' && (
           <button onClick={openAssign} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 15, fontWeight: 500, padding: '8px 15px', borderRadius: 999, background: INK, color: 'oklch(0.965 0.012 75)', display: 'flex', alignItems: 'center', gap: '7px' }}>
             <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New journey
           </button>
