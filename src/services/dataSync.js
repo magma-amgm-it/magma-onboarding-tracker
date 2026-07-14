@@ -1,4 +1,4 @@
-import { getDepartments, getMilestoneTemplates, getNewHires, getCompletions } from './graphApi';
+import { getDepartments, getMilestoneTemplates, getNewHires, getCompletions, getProvRequests, getProvTasks } from './graphApi';
 
 const ACTIVE_INTERVAL = 60 * 1000;   // 60s when tab visible
 const HIDDEN_INTERVAL = 300 * 1000;  // 5 min when tab hidden
@@ -10,14 +10,16 @@ export function createDataSyncManager(onDataUpdate, onError) {
 
   async function fetchAllData() {
     try {
-      const [departments, milestoneTemplates, newHires, completions] = await Promise.all([
+      const [departments, milestoneTemplates, newHires, completions, provRequests, provTasks] = await Promise.all([
         getDepartments(),
         getMilestoneTemplates(),
         getNewHires(),
         getCompletions(),
+        getProvRequests().catch(() => []),
+        getProvTasks().catch(() => []),
       ]);
       const data = {
-        departments, milestoneTemplates, newHires, completions,
+        departments, milestoneTemplates, newHires, completions, provRequests, provTasks,
         lastUpdated: new Date().toISOString(),
       };
       onDataUpdate(data);

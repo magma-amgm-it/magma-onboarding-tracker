@@ -97,10 +97,53 @@ export function mapCompletions(items) {
   return { checked, compIndex, events };
 }
 
+/* ---- pre-boarding provisioning ---- */
+export function mapProvRequests(items) {
+  return (items || []).map((it) => ({
+    id: String(it.id),
+    name: it.Title || '(unnamed)',
+    position: it.Position || '',
+    dept: (it.Department || '').trim(),
+    start: dOnly(it.StartDate),
+    replacementFor: it.ReplacementFor || '',
+    upn: (it.DesiredUpn || '').toLowerCase(),
+    licenseType: it.LicenseType || 'Business Premium',
+    location: it.Location || '',
+    costCentre: it.CostCentre || '',
+    managerName: it.ManagerName || '',
+    managerUpn: (it.ManagerUpn || '').toLowerCase(),
+    stage: it.Stage || 'Requested',
+    submittedBy: it.SubmittedByName || '',
+    approvedBy: it.ApprovedByName || '',
+    approvedAt: it.ApprovedAt || '',
+    newHireId: it.NewHireId || null,
+    accountCreated: !!it.AccountCreated,
+    licenseAssigned: !!it.LicenseAssigned,
+    tempPasswordSent: !!it.TempPasswordSent,
+    notes: it.Notes || '',
+    created: it.createdDateTime || '',
+  }));
+}
+
+export function mapProvTasks(items) {
+  return (items || []).map((it) => ({
+    id: String(it.id),
+    requestId: it.RequestId != null ? String(it.RequestId) : '',
+    hireName: it.HireName || '',
+    team: it.Team || '',
+    item: it.Title || '',
+    status: it.Status || 'Required',
+    doneBy: it.DoneByName || '',
+    doneAt: it.DoneAt || '',
+  }));
+}
+
 export function mapAll(raw) {
   const depts = mapDepartments(raw.departments);
   const milestones = mapMilestones(raw.milestoneTemplates);
   const emps = mapNewHires(raw.newHires);
   const { checked, compIndex, events } = mapCompletions(raw.completions);
-  return { depts, milestones, emps, checked, compIndex, events };
+  const provRequests = mapProvRequests(raw.provRequests);
+  const provTasks = mapProvTasks(raw.provTasks);
+  return { depts, milestones, emps, checked, compIndex, events, provRequests, provTasks };
 }

@@ -9,6 +9,8 @@ export const LIST_NAMES = {
   milestoneTemplates: 'MilestoneTemplates',
   newHires: 'NewHires',
   completions: 'MilestoneCompletions',
+  provRequests: 'ProvisioningRequests',
+  provTasks: 'ProvisioningTasks',
 };
 
 /* ---- low-level fetch with token, 429 back-off, friendly errors ---- */
@@ -131,6 +133,14 @@ export async function upsertCompletion({ spId, key, hireId, done, byName }) {
     CompletedByName: byName || '', CompletedAt: stamp,
   });
 }
+
+/* ---- pre-boarding provisioning ---- */
+export const getProvRequests = () => getListItems(LIST_NAMES.provRequests);
+export const getProvTasks     = () => getListItems(LIST_NAMES.provTasks);
+export function createProvRequest(fields) { return createListItem(LIST_NAMES.provRequests, fields); }
+export function updateProvRequest(id, fields) { return updateListItem(LIST_NAMES.provRequests, id, fields); }
+export function createProvTask(fields) { return createListItem(LIST_NAMES.provTasks, fields); }
+export function updateProvTask(id, fields) { return updateListItem(LIST_NAMES.provTasks, id, fields); }
 
 /* ---- signed-in user + role ---- */
 export async function getMe() {

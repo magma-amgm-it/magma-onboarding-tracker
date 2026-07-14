@@ -5,7 +5,7 @@ import {
   managerOptions, ini, colorFor, isOrgWide, fmtDate,
 } from './data.js';
 import { login, logout, getActiveAccount } from './services/auth.js';
-import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople } from './services/graphApi.js';
+import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople, createProvRequest, updateProvRequest, createProvTask, updateProvTask } from './services/graphApi.js';
 import { createDataSyncManager } from './services/dataSync.js';
 import { mapAll } from './dataMap.js';
 
@@ -144,6 +144,12 @@ export default function App() {
   const [assignManagerP, setAssignManagerP] = useState(null); // { name, upn, mail } from directory
   const [assignStart, setAssignStart] = useState(new Date().toISOString().slice(0, 10));
 
+  // pre-boarding provisioning
+  const [reqOpen, setReqOpen] = useState(false);
+  const [reqSaving, setReqSaving] = useState(false);
+  const [reqForm, setReqForm] = useState(null);
+  const [selectedReqId, setSelectedReqId] = useState(null);
+
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4200); return () => clearTimeout(t); }, [toast]);
 
@@ -220,6 +226,8 @@ export default function App() {
   const { depts, milestones, emps, compIndex } = data;
   const checked = data.checked;
   const events = data.events || [];
+  const provRequests = data.provRequests || [];
+  const provTasks = data.provTasks || [];
   const allDepts = Object.keys(depts);
 
   /* ---- identity → which hires this (effective) role can see ---- */
@@ -278,7 +286,17 @@ export default function App() {
   const canTickHire = (id) => role === 'admin' || (emps[id] && emps[id].managerUpn && emps[id].managerUpn === myUpn);
   const canCreate = role === 'admin' || role === 'hr' || role === 'manager';
   const canReassign = role === 'admin' || role === 'hr';
+  // pre-boarding provisioning capabilities
+  const canProvision = role === 'admin' || role === 'hr';   // see + submit requests
+  const canApprove = role === 'admin';                       // IT (Abhishek/Trevor) approves
+  const canTickTask = role === 'admin' || role === 'hr';     // Phase A: tick any; Phase B routes by team
   const mgrOf = (id) => emps[id].manager || '—';
+
+  /* ---- provisioning task set seeded on each new request ---- */
+  const PROV_TASKS = [
+    ['IT', 'PC'], ['IT', 'Printer code'], ['IT', 'CRM access'], ['IT', 'icare'], ['IT', 'Client DB'], ['IT', 'Mobile / Teams'],
+    ['Admin', 'Access card'], ['HR', 'Photo ID'], ['Facilities', 'Office space & key'], ['Finance', 'Cost centre'],
+  ];
 
   const goHome = () => { setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const switchRole = (id) => { setRole(id); setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); setQuery(''); };
@@ -332,6 +350,62 @@ export default function App() {
     }
   }
 
+  /* ---- provisioning handlers ---- */
+  const openReqModal = () => {
+    setReqForm({ hire: null, managerP: null, pos: '', dept: allDepts[0] || '', start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '' });
+    setReqSaving(false); setReqOpen(true);
+  };
+  const openRequest = (id) => { setSelectedReqId(id); setView('request'); };
+
+  async function submitRequest() {
+    const f = reqForm;
+    if (!f || !f.hire || !f.hire.name) { setToast('Please pick the new hire from the directory.'); return; }
+    setReqSaving(true);
+    try {
+      const created = await createProvRequest({
+        Title: f.hire.name, Position: f.pos.trim(), Department: f.dept, StartDate: f.start,
+        ReplacementFor: f.replacement.trim(), DesiredUpn: f.hire.upn || f.hire.mail || '',
+        LicenseType: f.license, Location: f.location.trim(), CostCentre: f.costCentre.trim(),
+        ManagerName: f.managerP ? f.managerP.name : '', ManagerUpn: f.managerP ? (f.managerP.upn || f.managerP.mail || '') : '',
+        Stage: 'Requested', SubmittedByName: me.name, Notes: f.notes.trim(),
+      });
+      const reqId = created && created.id ? Number(created.id) : 0;
+      for (const [team, item] of PROV_TASKS) {
+        await createProvTask({ Title: item, RequestId: reqId, HireName: f.hire.name, Team: team, Status: 'Required' });
+      }
+      if (syncRef.current) await syncRef.current.refresh();
+      setReqOpen(false); setReqSaving(false);
+      setToast('Request submitted for ' + f.hire.name + '.');
+    } catch (e) {
+      setReqSaving(false);
+      setToast('Could not submit request: ' + (e.message || e));
+    }
+  }
+
+  async function approveRequest(id, approve) {
+    const r = provRequests.find((x) => x.id === id);
+    if (!r) return;
+    const stage = approve ? 'Approved' : 'Rejected';
+    setData((d) => ({ ...d, provRequests: d.provRequests.map((x) => x.id === id ? { ...x, stage, approvedBy: me.name } : x) }));
+    try {
+      await updateProvRequest(id, { Stage: stage, ApprovedByName: me.name, ApprovedAt: new Date().toISOString() });
+      setToast(approve ? ('Approved — provisioning will run for ' + r.name + '.') : 'Request rejected.');
+    } catch (e) {
+      if (syncRef.current) await syncRef.current.refresh();
+      setToast('Could not update request: ' + (e.message || e));
+    }
+  }
+
+  async function tickProvTask(taskId, done) {
+    setData((d) => ({ ...d, provTasks: d.provTasks.map((t) => t.id === taskId ? { ...t, status: done ? 'Done' : 'Required', doneBy: done ? me.name : '' } : t) }));
+    try {
+      await updateProvTask(taskId, { Status: done ? 'Done' : 'Required', DoneByName: done ? me.name : '', DoneAt: done ? new Date().toISOString() : null });
+    } catch (e) {
+      if (syncRef.current) await syncRef.current.refresh();
+      setToast('Could not update task: ' + (e.message || e));
+    }
+  }
+
   /* ---- sidebar ---- */
   const sideItem = (active) => ({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 9, fontSize: 14.5, cursor: 'pointer', color: active ? INK : 'oklch(0.44 0.010 60)', background: active ? 'oklch(0.985 0.006 80)' : 'transparent', boxShadow: active ? 'inset 0 0 0 1px oklch(0.88 0.012 70)' : 'none' });
   const Sidebar = () => (
@@ -376,6 +450,12 @@ export default function App() {
       {!isEmployee && (
         <div>
           <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>Workspace</div>
+          {canProvision && (
+            <div onClick={() => { setView('provisioning'); setDeptId(null); setEmpId(null); setListFilter(null); }} className="rowhover" style={sideItem((view === 'provisioning' || view === 'request') && !searching)}>
+              <span>New-hire requests</span>
+              <span style={{ fontSize: 14, color: MUTED }}>{provRequests.filter(r => r.stage === 'Requested').length || ''}</span>
+            </div>
+          )}
           <div onClick={openActivity} className="rowhover" style={sideItem(view === 'activity' && !searching)}><span>Activity log</span></div>
         </div>
       )}
@@ -952,11 +1032,170 @@ export default function App() {
     </div>
   );
 
+  /* ---- pre-boarding provisioning views ---- */
+  const stageMeta = {
+    Requested: { label: 'Awaiting approval', color: WARN },
+    Approved: { label: 'Approved · provisioning', color: 'oklch(0.52 0.10 250)' },
+    Provisioned: { label: 'Provisioned', color: OK },
+    Rejected: { label: 'Rejected', color: BLOCKED },
+  };
+  const ProvisioningView = () => {
+    const stages = ['Requested', 'Approved', 'Provisioned'];
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 1000 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0 }}>New-hire requests</h1>
+          <button onClick={openReqModal} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 14.5, fontWeight: 500, padding: '8px 15px', borderRadius: 999, background: INK, color: 'oklch(0.965 0.012 75)', display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New request</button>
+        </div>
+        <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '0 0 26px', maxWidth: 560 }}>Submit a new hire's setup once. IT approves, the M365 account is created, and each team ticks off their part before day one.</p>
+        {stages.map(stage => {
+          const rows = provRequests.filter(r => r.stage === stage);
+          if (!rows.length) return null;
+          const sm = stageMeta[stage] || {};
+          return (
+            <div key={stage} style={{ marginBottom: 26 }}>
+              <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, margin: '0 0 10px' }}>{sm.label || stage} · {rows.length}</div>
+              <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, overflow: 'hidden' }}>
+                {rows.map(r => {
+                  const done = provTasks.filter(t => t.requestId === r.id && t.status === 'Done').length;
+                  const total = provTasks.filter(t => t.requestId === r.id).length;
+                  return (
+                    <div key={r.id} onClick={() => openRequest(r.id)} className="rowhover" style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1fr 1fr 70px', gap: 16, padding: '16px 22px', borderBottom: '1px solid oklch(0.92 0.010 72)', alignItems: 'center', cursor: 'pointer' }}>
+                      <div><div style={{ fontSize: 15.5, fontWeight: 500, color: INK }}>{r.name}</div><div style={{ fontSize: 14, color: MUTED, marginTop: 2 }}>{r.position || '—'}{depts[r.dept] ? ' · ' + depts[r.dept].name : (r.dept ? ' · ' + r.dept : '')}</div></div>
+                      <span style={{ fontSize: 14.5, color: 'oklch(0.44 0.010 60)' }}>{r.managerName || '—'}</span>
+                      <span style={{ fontSize: 14.5, color: MUTED }}>{r.start ? fmtDate(r.start) : '—'}</span>
+                      <span style={{ fontSize: 14, color: r.accountCreated ? OK : MUTED }}>{r.accountCreated ? 'Account ✓' : 'Setup ' + done + '/' + total}</span>
+                      <span style={{ textAlign: 'right', fontSize: 14, color: 'oklch(0.44 0.010 60)' }}>View ›</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        {!provRequests.length && <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: 40, textAlign: 'center', color: MUTED, fontSize: 15 }}>No requests yet — hit “New request” to submit the first one.</div>}
+      </div>
+    );
+  };
+
+  const RequestDetail = () => {
+    const r = provRequests.find(x => x.id === selectedReqId);
+    if (!r) return null;
+    const tasks = provTasks.filter(t => t.requestId === r.id);
+    const byTeam = {};
+    tasks.forEach(t => { (byTeam[t.team] = byTeam[t.team] || []).push(t); });
+    const sm = stageMeta[r.stage] || {};
+    const field = (label, val) => (<div><div style={{ fontSize: 13, color: MUTED }}>{label}</div><div style={{ fontSize: 15, color: INK, marginTop: 2 }}>{val || '—'}</div></div>);
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 920 }}>
+        <button onClick={() => setView('provisioning')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: MUTED, padding: 0, marginBottom: 24 }}>‹ New-hire requests</button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 22 }}>
+          <div>
+            <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0, lineHeight: 1 }}>{r.name}</h1>
+            <div style={{ fontSize: 14, color: MUTED, marginTop: 8 }}>{r.position || '—'}{depts[r.dept] ? ' · ' + depts[r.dept].name : (r.dept ? ' · ' + r.dept : '')}{r.replacementFor ? ' · replacing ' + r.replacementFor : ''}</div>
+          </div>
+          <span style={{ fontSize: 13.5, padding: '6px 12px', borderRadius: 999, border: `1px solid ${sm.color || MUTED}`, color: sm.color || MUTED, whiteSpace: 'nowrap' }}>{sm.label || r.stage}</span>
+        </div>
+        <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '22px 24px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '18px 24px', marginBottom: 18 }}>
+          {field('Start date', r.start ? fmtDate(r.start) : '—')}
+          {field('Reporting manager', r.managerName)}
+          {field('Email / UPN', r.upn)}
+          {field('Licence', r.licenseType)}
+          {field('Location', r.location)}
+          {field('Cost centre', r.costCentre)}
+        </div>
+        {(r.stage === 'Approved' || r.stage === 'Provisioned') && (
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
+            {[['Account created', r.accountCreated], ['Licence assigned', r.licenseAssigned], ['Temp password sent', r.tempPasswordSent]].map(([labl, ok]) => (
+              <span key={labl} style={{ fontSize: 13.5, padding: '6px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.985 0.006 80)', color: ok ? OK : MUTED }}>{ok ? '✓ ' : '· '}{labl}</span>
+            ))}
+          </div>
+        )}
+        {canApprove && r.stage === 'Requested' && (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 22 }}>
+            <button onClick={() => approveRequest(r.id, true)} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 14.5, fontWeight: 500, padding: '10px 18px', borderRadius: 10, background: INK, color: 'oklch(0.965 0.012 75)' }}>Approve &amp; provision</button>
+            <button onClick={() => approveRequest(r.id, false)} style={{ border: '1px solid oklch(0.88 0.012 70)', cursor: 'pointer', fontSize: 14.5, padding: '10px 18px', borderRadius: 10, background: 'oklch(0.985 0.006 80)', color: 'oklch(0.44 0.010 60)' }}>Reject</button>
+          </div>
+        )}
+        {r.stage === 'Requested' && !canApprove && <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 22 }}>Waiting on IT (Abhishek or Trevor) to approve.</div>}
+        <div style={{ fontSize: 18, fontFamily: "'Source Serif 4',Georgia,serif", margin: '6px 0 12px' }}>Setup tasks</div>
+        {Object.keys(byTeam).map(team => (
+          <div key={team} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 13, letterSpacing: '0.02em', color: MUTED, margin: '0 0 6px' }}>{team}</div>
+            <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden' }}>
+              {byTeam[team].map(t => { const done = t.status === 'Done';
+                return (
+                  <div key={t.id} onClick={() => canTickTask && tickProvTask(t.id, !done)} className={canTickTask ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: '1px solid oklch(0.92 0.010 72)', cursor: canTickTask ? 'pointer' : 'default' }}>
+                    <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
+                    <span style={{ flex: 1, fontSize: 15, color: done ? MUTED : INK }}>{t.item}</span>
+                    {done && t.doneBy && <span style={{ fontSize: 13, color: MUTED }}>{t.doneBy}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {!tasks.length && <div style={{ fontSize: 14, color: MUTED }}>No setup tasks on this request.</div>}
+      </div>
+    );
+  };
+
+  const NewRequestModal = () => {
+    const f = reqForm; if (!f) return null;
+    const set = (k, v) => setReqForm({ ...f, [k]: v });
+    const inp = { width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' };
+    const lab = { display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, margin: '0 0 7px' };
+    return (
+      <div onClick={() => !reqSaving && setReqOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'oklch(0.22 0.012 60 / 0.28)', display: 'grid', placeItems: 'center', padding: 24, backdropFilter: 'blur(2px)' }}>
+        <div onClick={(e) => e.stopPropagation()} className="successcard" style={{ width: 600, maxWidth: '100%', background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 18, overflow: 'hidden', maxHeight: '92vh', overflowY: 'auto' }}>
+          <div style={{ padding: '24px 26px 16px', borderBottom: '1px solid oklch(0.92 0.010 72)' }}>
+            <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 9 }}>New-hire request</div>
+            <h3 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: 0 }}>Request setup for a new hire</h3>
+          </div>
+          <div style={{ padding: '22px 26px' }}>
+            <label style={lab}>New hire <span style={{ color: MUTED }}>(search your directory)</span></label>
+            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.hire} onChange={(p) => set('hire', p)} placeholder="Type a name or email…" /></div>
+            <label style={lab}>Position / title</label>
+            <input value={f.pos} onChange={(e) => set('pos', e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ ...inp, marginBottom: 16 }} />
+            <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}><label style={lab}>Department</label>
+                <select value={f.dept} onChange={(e) => set('dept', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}</select></div>
+              <div style={{ flex: 1 }}><label style={lab}>Start date</label>
+                <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={inp} /></div>
+            </div>
+            <label style={lab}>Reporting manager</label>
+            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search…" /></div>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}><label style={lab}>Licence</label>
+                <select value={f.license} onChange={(e) => set('license', e.target.value)} style={{ ...inp, cursor: 'pointer' }}><option>Business Premium</option><option>None</option><option>Other</option></select></div>
+              <div style={{ flex: 1 }}><label style={lab}>Replacing (optional)</label>
+                <input value={f.replacement} onChange={(e) => set('replacement', e.target.value)} placeholder="e.g. Ali" style={inp} /></div>
+            </div>
+            <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}><label style={lab}>Office / location</label>
+                <input value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Intake — Floor 2" style={inp} /></div>
+              <div style={{ flex: 1 }}><label style={lab}>Cost centre</label>
+                <input value={f.costCentre} onChange={(e) => set('costCentre', e.target.value)} placeholder="e.g. 0001SET001" style={inp} /></div>
+            </div>
+            <label style={lab}>Notes (optional)</label>
+            <textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} rows={2} style={{ ...inp, resize: 'vertical' }} />
+          </div>
+          <div style={{ padding: '16px 26px', background: 'oklch(0.945 0.015 72)', borderTop: '1px solid oklch(0.92 0.010 72)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button onClick={() => setReqOpen(false)} disabled={reqSaving} style={{ border: '1px solid oklch(0.88 0.012 70)', cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '10px 18px', borderRadius: 10, background: 'oklch(0.985 0.006 80)', color: 'oklch(0.44 0.010 60)' }}>Cancel</button>
+            <button onClick={submitRequest} disabled={reqSaving} className="lift" style={{ border: `1px solid ${INK}`, cursor: reqSaving ? 'default' : 'pointer', fontSize: 14, fontWeight: 500, padding: '10px 18px', borderRadius: 10, background: INK, color: 'oklch(0.965 0.012 75)', opacity: reqSaving ? 0.7 : 1 }}>{reqSaving ? 'Submitting…' : 'Submit request'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   let content;
   if (searching) content = SearchResults();
   else if (view === 'dept') content = DeptDetail();
   else if (view === 'list') content = ListView();
   else if (view === 'activity') content = ActivityFeed();
+  else if (view === 'provisioning') content = ProvisioningView();
+  else if (view === 'request') content = RequestDetail();
   else if (view === 'journey') content = Journey();
   else content = Overview();
 
@@ -970,6 +1209,7 @@ export default function App() {
         </div>
       </main>
       {assignOpen && AssignModal()}
+      {reqOpen && NewRequestModal()}
       {toast && (
         <div style={{ position: 'fixed', left: '50%', bottom: 26, transform: 'translateX(-50%)', zIndex: 90, background: INK, color: 'oklch(0.965 0.012 75)', padding: '11px 18px', borderRadius: 10, fontSize: 14.5, boxShadow: '0 12px 30px -10px rgba(40,30,10,.5)', maxWidth: 520 }}>{toast}</div>
       )}
