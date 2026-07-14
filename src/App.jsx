@@ -271,8 +271,11 @@ export default function App() {
     : { name: me.name, roleLabel: roleTitle, dept: primaryDept };
 
   const meCard = { name: me.name, roleLabel: roleTitle, initials: ini(me.name || 'You') };
-  // capabilities. Ticking = verification = the manager's job (admin can too, for support). HR never ticks.
-  const canTick = role === 'admin' || role === 'manager';
+  // capabilities. Ticking = verification. Allowed if you're the hire's NAMED manager (matched by
+  // email) — regardless of your role. This lets an HR person who also manages a department (e.g.
+  // Lara managing HR-dept hires) tick THEIR hires, while every other hire stays read-only for them.
+  // Admin can tick anything (support).
+  const canTickHire = (id) => role === 'admin' || (emps[id] && emps[id].managerUpn && emps[id].managerUpn === myUpn);
   const canCreate = role === 'admin' || role === 'hr' || role === 'manager';
   const canReassign = role === 'admin' || role === 'hr';
   const mgrOf = (id) => emps[id].manager || '—';
@@ -315,7 +318,7 @@ export default function App() {
   }
 
   async function toggleMilestone(hireId, m, i) {
-    if (!canTick) return;
+    if (!canTickHire(hireId)) return;
     const key = `${hireId}|${m}|${i}`;
     const cur = !!checked[key];
     const next = !cur;
@@ -736,6 +739,7 @@ export default function App() {
 
     const backFromJourney = () => isEmployee ? goHome() : cameFromList ? setView('list') : setView('dept');
     // canReassign is defined at component scope (admin + HR)
+    const canTickThis = canTickHire(id); // tick only hires you personally manage (or admin)
 
     return (
       <div style={{ padding: '40px 48px 72px', maxWidth: 980 }}>
@@ -799,18 +803,18 @@ export default function App() {
           ))}
         </div>
 
-        {isEmployee && (
+        {!canTickThis && (
           <div style={{ fontSize: 13.5, color: MUTED, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
-            Read-only — your manager verifies and checks off each milestone.
+            {isEmployee ? 'Read-only — your manager verifies and checks off each milestone.' : 'Read-only — only ' + mgrOf(id) + ' (this hire’s manager) checks these off.'}
           </div>
         )}
 
         <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 14, overflow: 'hidden' }}>
           {list.length === 0 && <div style={{ padding: '28px 22px', color: MUTED, fontSize: 15 }}>No milestones defined for this month yet.</div>}
           {list.map(item => (
-            <div key={item.key} onClick={() => toggleMilestone(id, month, item.i)} className={canTick ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '15px 22px', borderBottom: '1px solid oklch(0.92 0.010 72)', cursor: canTick ? 'pointer' : 'default' }}>
-              <div className="chkbox" style={{ width: 18, height: 18, borderRadius: 5, flex: 'none', border: `1.5px solid ${item.boxBorder}`, background: item.boxBg, display: 'grid', placeItems: 'center', opacity: canTick ? 1 : 0.85 }}>
+            <div key={item.key} onClick={() => toggleMilestone(id, month, item.i)} className={canTickThis ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '15px 22px', borderBottom: '1px solid oklch(0.92 0.010 72)', cursor: canTickThis ? 'pointer' : 'default' }}>
+              <div className="chkbox" style={{ width: 18, height: 18, borderRadius: 5, flex: 'none', border: `1.5px solid ${item.boxBorder}`, background: item.boxBg, display: 'grid', placeItems: 'center', opacity: canTickThis ? 1 : 0.85 }}>
                 {item.done && <svg className="chkpop" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}
               </div>
               <span style={{ flex: 1, fontSize: 16, color: item.textColor }}>{item.text}</span>

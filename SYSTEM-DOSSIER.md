@@ -74,11 +74,14 @@ IT Admin, who has a "preview as" switcher for support/testing.
 | `MAGMA-OnboardingTracker-Managers` | `manager` | Contribute | **only their own assigned hires** (grouped by dept) | create (auto-self as mgr) | yes | no |
 | `MAGMA-OnboardingTracker-Users` | `employee` | Read | only their own journey | no | no | no |
 
-Key rules: **HR never ticks** — ticking is verification, which is the manager's job. **Managers
-see only the hires where they are the named reporting manager** (matched by `ManagerUpn` = their
-email), so no manager→department mapping is needed. **Execs are read-only.** A new hire's identity
-match uses `HireUpn`. The IT Admin's preview switcher can view any role, and for manager/new-hire
-it has a dropdown to pick whose view to preview.
+Key rules: **Ticking is per-hire, not per-role.** You can tick a milestone only for hires where
+**you are the named reporting manager** (matched by `ManagerUpn` = your email) — plus Admin, for
+support. So HR generally doesn't tick, **but an HR person who also manages a department** (e.g. Lara
+managing the HR department's own new hires) **can tick THOSE hires** right from their HR view, while
+every other hire stays read-only for them. This is the `canTickHire(id)` helper in `App.jsx`.
+**Managers see only the hires where they are the named reporting manager**, so no manager→department
+mapping is needed. **Execs are read-only.** A new hire's identity match uses `HireUpn`. The IT
+Admin's preview switcher can view any role, with a dropdown to pick whose view to preview.
 
 **Security principle:** the SharePoint site permission is the *real* boundary (server-side); the UI
 scoping is convenience. Read-only roles (Exec, New hire) are enforced by the **Read** grant — writes
