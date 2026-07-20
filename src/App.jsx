@@ -8,6 +8,7 @@ import { login, logout, getActiveAccount } from './services/auth.js';
 import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople, createProvRequest, updateProvRequest, createProvTask, updateProvTask } from './services/graphApi.js';
 import { createDataSyncManager } from './services/dataSync.js';
 import { mapAll } from './dataMap.js';
+import { ACRONYMS } from './acronyms.js';
 
 /* ---- role ← security group membership ---- */
 const GROUPS = {
@@ -134,6 +135,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [previewMgr, setPreviewMgr] = useState('');     // IT-admin: which manager's view to preview
   const [previewHire, setPreviewHire] = useState(null); // IT-admin: which new hire's view to preview
+  const [acroQuery, setAcroQuery] = useState('');       // acronym glossary search
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignStep, setAssignStep] = useState('form'); // form | saving | done
@@ -303,6 +305,7 @@ export default function App() {
   const openList = (filter) => { if (isEmployee) return; setView('list'); setListFilter(filter); setDeptId(null); setEmpId(null); };
   const openDept = (id) => { if (isEmployee) return; setView('dept'); setDeptId(id); setListFilter(null); };
   const openActivity = () => { if (isEmployee) return; setView('activity'); setDeptId(null); setEmpId(null); setListFilter(null); };
+  const openAcronyms = () => { setView('acronyms'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const openJourney = (id) => { if (isEmployee && id !== rm.empId) return; setView('journey'); setEmpId(id); setMonth(1); };
 
   const overallPct = scopeEmps.length ? Math.round(scopeEmps.reduce((a, id) => a + pctOf(checked, id), 0) / scopeEmps.length) : 0;
@@ -436,6 +439,7 @@ export default function App() {
 
       <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>{isEmployee ? 'My onboarding' : 'Views'}</div>
       <div onClick={goHome} className="rowhover" style={sideItem(view === 'home' && !searching)}><span>{isEmployee ? 'My journey' : 'Overview'}</span></div>
+      <div onClick={openAcronyms} className="rowhover" style={sideItem(view === 'acronyms' && !searching)}><span>Acronyms</span></div>
       {!isEmployee && (
         <div>
           <div onClick={() => openList('attention')} className="rowhover" style={sideItem(view === 'list' && listFilter === 'attention')}>
@@ -1189,6 +1193,36 @@ export default function App() {
     );
   };
 
+  /* ---- acronyms glossary (bilingual reference) ---- */
+  const AcronymsView = () => {
+    const q = acroQuery.trim().toLowerCase();
+    const rows = q ? ACRONYMS.filter((x) => (x.a + ' ' + x.en + ' ' + x.fr).toLowerCase().includes(q)) : ACRONYMS;
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 940 }}>
+        <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0 }}>Acronyms</h1>
+        <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '12px 0 20px', maxWidth: 560 }}>The settlement sector runs on acronyms. Search this bilingual reference (source: ARAISA) any time.</p>
+        <div style={{ position: 'relative', maxWidth: 360, marginBottom: 20 }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ position: 'absolute', left: 12, top: 12, opacity: 0.45 }}><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.4"></circle><path d="m11 11 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"></path></svg>
+          <input value={acroQuery} onChange={(e) => setAcroQuery(e.target.value)} placeholder="Search an acronym or term…" style={{ width: '100%', padding: '10px 32px 10px 34px', borderRadius: 10, background: 'oklch(0.945 0.015 72)', border: '1px solid oklch(0.88 0.012 70)', color: INK, fontSize: 14.5, outline: 'none' }} />
+          {acroQuery && <span onClick={() => setAcroQuery('')} style={{ position: 'absolute', right: 11, top: 8, cursor: 'pointer', color: MUTED, fontSize: 16 }}>×</span>}
+        </div>
+        <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 10 }}>{rows.length} of {ACRONYMS.length}</div>
+        <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, overflow: 'hidden' }}>
+          {rows.map((x, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 18, padding: '14px 22px', borderBottom: i < rows.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none', alignItems: 'baseline' }}>
+              <div style={{ fontSize: 15.5, fontWeight: 500, color: INK }}>{x.a}</div>
+              <div>
+                <div style={{ fontSize: 15, color: INK }}>{x.en}</div>
+                {x.fr && x.fr !== x.en && <div style={{ fontSize: 14, color: 'oklch(0.58 0.09 45)', marginTop: 2, fontStyle: 'italic' }}>{x.fr}</div>}
+              </div>
+            </div>
+          ))}
+          {!rows.length && <div style={{ padding: 30, textAlign: 'center', color: MUTED, fontSize: 15 }}>No acronym matches “{acroQuery.trim()}”.</div>}
+        </div>
+      </div>
+    );
+  };
+
   let content;
   if (searching) content = SearchResults();
   else if (view === 'dept') content = DeptDetail();
@@ -1196,6 +1230,7 @@ export default function App() {
   else if (view === 'activity') content = ActivityFeed();
   else if (view === 'provisioning') content = ProvisioningView();
   else if (view === 'request') content = RequestDetail();
+  else if (view === 'acronyms') content = AcronymsView();
   else if (view === 'journey') content = Journey();
   else content = Overview();
 
