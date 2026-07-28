@@ -402,8 +402,8 @@ export default function App() {
         Stage: 'Requested', SubmittedByName: me.name, Notes: f.notes.trim(),
       });
       const reqId = created && created.id ? Number(created.id) : 0;
-      for (const it of (f.items || [])) {
-        await createProvTask({ Title: it.item, RequestId: reqId, HireName: name, Team: it.team, Status: it.needed ? 'Required' : 'Not required', Detail: (it.detail || '').trim() });
+      for (const it of (f.items || []).filter((x) => x.item && x.item.trim())) {
+        await createProvTask({ Title: it.item.trim(), RequestId: reqId, HireName: name, Team: it.team, Status: it.needed ? 'Required' : 'Not required', Detail: (it.detail || '').trim() });
       }
       if (syncRef.current) await syncRef.current.refresh();
       setReqOpen(false); setReqSaving(false);
@@ -1202,6 +1202,8 @@ export default function App() {
     const f = reqForm; if (!f) return null;
     const set = (k, v) => setReqForm({ ...f, [k]: v });
     const setItem = (idx, k, v) => setReqForm({ ...f, items: f.items.map((x, i) => i === idx ? { ...x, [k]: v } : x) });
+    const addItem = () => setReqForm({ ...f, items: [...f.items, { team: 'IT', item: '', detail: '', needed: true, custom: true }] });
+    const removeItem = (idx) => setReqForm({ ...f, items: f.items.filter((_, i) => i !== idx) });
     const inp = { width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' };
     const lab = { display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, margin: '0 0 7px' };
     return (
@@ -1251,12 +1253,18 @@ export default function App() {
               {(f.items || []).map((it, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: idx < f.items.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none' }}>
                   <div onClick={() => setItem(idx, 'needed', !it.needed)} style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', cursor: 'pointer', border: `1.5px solid ${it.needed ? INK : 'oklch(0.80 0.012 70)'}`, background: it.needed ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{it.needed && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
-                  <span style={{ width: 128, fontSize: 14, color: it.needed ? INK : MUTED }}>{it.item}</span>
-                  <span style={{ width: 64, fontSize: 12, color: MUTED }}>{it.team}</span>
+                  {it.custom
+                    ? <input value={it.item} onChange={(e) => setItem(idx, 'item', e.target.value)} placeholder="Custom item" style={{ width: 122, fontSize: 13.5, padding: '5px 8px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' }} />
+                    : <span style={{ width: 128, fontSize: 14, color: it.needed ? INK : MUTED }}>{it.item}</span>}
+                  {it.custom
+                    ? <select value={it.team} onChange={(e) => setItem(idx, 'team', e.target.value)} style={{ width: 92, fontSize: 12, padding: '5px 6px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: 'oklch(0.44 0.010 60)', cursor: 'pointer' }}>{TEAMS.map((tm) => <option key={tm} value={tm}>{tm}</option>)}</select>
+                    : <span style={{ width: 64, fontSize: 12, color: MUTED }}>{it.team}</span>}
                   <input value={it.detail} onChange={(e) => setItem(idx, 'detail', e.target.value)} disabled={!it.needed} placeholder={it.needed ? 'detail (optional)' : 'not required'} style={{ flex: 1, fontSize: 13.5, padding: '6px 9px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: it.needed ? 'oklch(0.965 0.012 75)' : 'oklch(0.945 0.015 72)', color: INK, outline: 'none' }} />
+                  {it.custom && <span onClick={() => removeItem(idx)} title="Remove" style={{ cursor: 'pointer', color: MUTED, fontSize: 17, lineHeight: 1, padding: '0 2px', flex: 'none' }}>×</span>}
                 </div>
               ))}
             </div>
+            <div onClick={addItem} className="rowhover" style={{ display: 'inline-block', cursor: 'pointer', fontSize: 13.5, color: 'oklch(0.58 0.09 45)', padding: '4px 8px', borderRadius: 8, margin: '-4px 0 16px' }}>+ Add item</div>
             <label style={lab}>Notes (optional)</label>
             <textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} rows={2} style={{ ...inp, resize: 'vertical' }} />
           </div>
