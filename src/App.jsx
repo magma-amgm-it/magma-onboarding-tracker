@@ -299,6 +299,7 @@ export default function App() {
     ['IT', 'PC'], ['IT', 'Printer code'], ['IT', 'CRM access'], ['IT', 'icare'], ['IT', 'Client DB'], ['IT', 'Mobile / Teams'],
     ['Admin', 'Access card'], ['HR', 'Photo ID'], ['Facilities', 'Office space & key'], ['Finance', 'Cost centre'],
   ];
+  const TEAMS = ['IT', 'Admin', 'HR', 'Facilities', 'Finance', 'Language'];
 
   const goHome = () => { setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const switchRole = (id) => { setRole(id); setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); setQuery(''); };
@@ -355,7 +356,8 @@ export default function App() {
 
   /* ---- provisioning handlers ---- */
   const openReqModal = () => {
-    setReqForm({ hire: null, managerP: null, pos: '', dept: allDepts[0] || '', start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '' });
+    const d0 = allDepts[0] || '';
+    setReqForm({ hire: null, managerP: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '', start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '' });
     setReqSaving(false); setReqOpen(true);
   };
   const openRequest = (id) => { setSelectedReqId(id); setView('request'); };
@@ -366,7 +368,7 @@ export default function App() {
     setReqSaving(true);
     try {
       const created = await createProvRequest({
-        Title: f.hire.name, Position: f.pos.trim(), Department: f.dept, StartDate: f.start,
+        Title: f.hire.name, Position: f.pos.trim(), Department: f.dept, Unit: f.unit || '', StartDate: f.start,
         ReplacementFor: f.replacement.trim(), DesiredUpn: f.hire.upn || f.hire.mail || '',
         LicenseType: f.license, Location: f.location.trim(), CostCentre: f.costCentre.trim(),
         ManagerName: f.managerP ? f.managerP.name : '', ManagerUpn: f.managerP ? (f.managerP.upn || f.managerP.mail || '') : '',
@@ -407,6 +409,12 @@ export default function App() {
       if (syncRef.current) await syncRef.current.refresh();
       setToast('Could not update task: ' + (e.message || e));
     }
+  }
+
+  async function setTaskTeam(taskId, team) {
+    setData((d) => ({ ...d, provTasks: d.provTasks.map((t) => t.id === taskId ? { ...t, team } : t) }));
+    try { await updateProvTask(taskId, { Team: team }); }
+    catch (e) { if (syncRef.current) await syncRef.current.refresh(); setToast('Could not change owner: ' + (e.message || e)); }
   }
 
   /* ---- sidebar ---- */
@@ -1086,8 +1094,6 @@ export default function App() {
     const r = provRequests.find(x => x.id === selectedReqId);
     if (!r) return null;
     const tasks = provTasks.filter(t => t.requestId === r.id);
-    const byTeam = {};
-    tasks.forEach(t => { (byTeam[t.team] = byTeam[t.team] || []).push(t); });
     const sm = stageMeta[r.stage] || {};
     const field = (label, val) => (<div><div style={{ fontSize: 13, color: MUTED }}>{label}</div><div style={{ fontSize: 15, color: INK, marginTop: 2 }}>{val || '—'}</div></div>);
     return (
@@ -1096,7 +1102,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, marginBottom: 22 }}>
           <div>
             <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0, lineHeight: 1 }}>{r.name}</h1>
-            <div style={{ fontSize: 14, color: MUTED, marginTop: 8 }}>{r.position || '—'}{depts[r.dept] ? ' · ' + depts[r.dept].name : (r.dept ? ' · ' + r.dept : '')}{r.replacementFor ? ' · replacing ' + r.replacementFor : ''}</div>
+            <div style={{ fontSize: 14, color: MUTED, marginTop: 8 }}>{r.position || '—'}{depts[r.dept] ? ' · ' + depts[r.dept].name : (r.dept ? ' · ' + r.dept : '')}{r.unit ? ' · ' + r.unit : ''}{r.replacementFor ? ' · replacing ' + r.replacementFor : ''}</div>
           </div>
           <span style={{ fontSize: 13.5, padding: '6px 12px', borderRadius: 999, border: `1px solid ${sm.color || MUTED}`, color: sm.color || MUTED, whiteSpace: 'nowrap' }}>{sm.label || r.stage}</span>
         </div>
@@ -1122,24 +1128,28 @@ export default function App() {
           </div>
         )}
         {r.stage === 'Requested' && !canApprove && <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 22 }}>Waiting on IT (Abhishek or Trevor) to approve.</div>}
-        <div style={{ fontSize: 18, fontFamily: "'Source Serif 4',Georgia,serif", margin: '6px 0 12px' }}>Setup tasks</div>
-        {Object.keys(byTeam).map(team => (
-          <div key={team} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, letterSpacing: '0.02em', color: MUTED, margin: '0 0 6px' }}>{team}</div>
-            <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden' }}>
-              {byTeam[team].map(t => { const done = t.status === 'Done';
-                return (
-                  <div key={t.id} onClick={() => canTickTask && tickProvTask(t.id, !done)} className={canTickTask ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: '1px solid oklch(0.92 0.010 72)', cursor: canTickTask ? 'pointer' : 'default' }}>
-                    <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
-                    <span style={{ flex: 1, fontSize: 15, color: done ? MUTED : INK }}>{t.item}</span>
-                    {done && t.doneBy && <span style={{ fontSize: 13, color: MUTED }}>{t.doneBy}</span>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        {!tasks.length && <div style={{ fontSize: 14, color: MUTED }}>No setup tasks on this request.</div>}
+        <div style={{ fontSize: 18, fontFamily: "'Source Serif 4',Georgia,serif", margin: '6px 0 6px' }}>Setup tasks</div>
+        <div style={{ fontSize: 13, color: MUTED, margin: '0 0 12px' }}>Each item is owned by a team — change the owner on the right if it should sit with someone else.</div>
+        <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden' }}>
+          {tasks.map((t, i) => { const done = t.status === 'Done';
+            return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < tasks.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none' }}>
+                <div onClick={() => canTickTask && tickProvTask(t.id, !done)} className={canTickTask ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: canTickTask ? 'pointer' : 'default', borderRadius: 8, padding: '2px 4px', margin: '-2px -4px' }}>
+                  <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
+                  <span style={{ flex: 1, fontSize: 15, color: done ? MUTED : INK }}>{t.item}</span>
+                </div>
+                {done && t.doneBy && <span style={{ fontSize: 13, color: MUTED }}>{t.doneBy}</span>}
+                {canProvision ? (
+                  <select value={TEAMS.includes(t.team) ? t.team : ''} onChange={(e) => setTaskTeam(t.id, e.target.value)} style={{ fontSize: 13, padding: '5px 8px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: 'oklch(0.44 0.010 60)', cursor: 'pointer', flex: 'none' }}>
+                    {!TEAMS.includes(t.team) && <option value="">{t.team || '—'}</option>}
+                    {TEAMS.map(tm => <option key={tm} value={tm}>{tm}</option>)}
+                  </select>
+                ) : <span style={{ fontSize: 13, color: MUTED, flex: 'none' }}>{t.team}</span>}
+              </div>
+            );
+          })}
+          {!tasks.length && <div style={{ padding: '20px', fontSize: 14, color: MUTED }}>No setup tasks on this request.</div>}
+        </div>
       </div>
     );
   };
@@ -1163,10 +1173,14 @@ export default function App() {
             <input value={f.pos} onChange={(e) => set('pos', e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
               <div style={{ flex: 1 }}><label style={lab}>Department</label>
-                <select value={f.dept} onChange={(e) => set('dept', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}</select></div>
+                <select value={f.dept} onChange={(e) => { const d = e.target.value; setReqForm({ ...f, dept: d, unit: (depts[d] && depts[d].units[0]) || '' }); }} style={{ ...inp, cursor: 'pointer' }}>{allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}</select></div>
               <div style={{ flex: 1 }}><label style={lab}>Start date</label>
                 <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={inp} /></div>
             </div>
+            {depts[f.dept] && depts[f.dept].units.length > 0 && (
+              <div style={{ marginBottom: 16 }}><label style={lab}>Unit within {depts[f.dept].name}</label>
+                <select value={f.unit} onChange={(e) => set('unit', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{depts[f.dept].units.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
+            )}
             <label style={lab}>Reporting manager</label>
             <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search…" /></div>
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>

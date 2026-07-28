@@ -104,6 +104,7 @@ export function mapProvRequests(items) {
     name: it.Title || '(unnamed)',
     position: it.Position || '',
     dept: (it.Department || '').trim(),
+    unit: it.Unit || '',
     start: dOnly(it.StartDate),
     replacementFor: it.ReplacementFor || '',
     upn: (it.DesiredUpn || '').toLowerCase(),
