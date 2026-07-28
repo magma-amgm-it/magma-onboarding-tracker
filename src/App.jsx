@@ -300,6 +300,7 @@ export default function App() {
     ['Admin', 'Access card'], ['HR', 'Photo ID'], ['Facilities', 'Office space & key'], ['Finance', 'Cost centre'],
   ];
   const TEAMS = ['IT', 'Admin', 'HR', 'Facilities', 'Finance', 'Language'];
+  const LICENSES = ['Business Premium', 'Business Basic', 'None'];
 
   const goHome = () => { setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const switchRole = (id) => { setRole(id); setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); setQuery(''); };
@@ -420,6 +421,12 @@ export default function App() {
     setData((d) => ({ ...d, provTasks: d.provTasks.map((t) => t.id === taskId ? { ...t, team } : t) }));
     try { await updateProvTask(taskId, { Team: team }); }
     catch (e) { if (syncRef.current) await syncRef.current.refresh(); setToast('Could not change owner: ' + (e.message || e)); }
+  }
+
+  async function setRequestLicense(id, license) {
+    setData((d) => ({ ...d, provRequests: d.provRequests.map((x) => x.id === id ? { ...x, licenseType: license } : x) }));
+    try { await updateProvRequest(id, { LicenseType: license }); }
+    catch (e) { if (syncRef.current) await syncRef.current.refresh(); setToast('Could not update licence: ' + (e.message || e)); }
   }
 
   /* ---- sidebar ---- */
@@ -1115,7 +1122,14 @@ export default function App() {
           {field('Start date', r.start ? fmtDate(r.start) : '—')}
           {field('Reporting manager', r.managerName)}
           {field('Email / UPN', r.upn)}
-          {field('Licence', r.licenseType)}
+          <div>
+            <div style={{ fontSize: 13, color: MUTED }}>Licence <span style={{ color: MUTED }}>· set by IT</span></div>
+            {canApprove ? (
+              <select value={LICENSES.includes(r.licenseType) ? r.licenseType : 'Business Premium'} onChange={(e) => setRequestLicense(r.id, e.target.value)} style={{ marginTop: 3, fontSize: 14, padding: '6px 8px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, cursor: 'pointer' }}>
+                {LICENSES.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
+            ) : <div style={{ fontSize: 15, color: INK, marginTop: 2 }}>{r.licenseType || '—'}</div>}
+          </div>
           {field('Location', r.location)}
           {field('Cost centre', r.costCentre)}
         </div>
@@ -1191,12 +1205,8 @@ export default function App() {
             )}
             <label style={lab}>Reporting manager</label>
             <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search…" /></div>
-            <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
-              <div style={{ flex: 1 }}><label style={lab}>Licence</label>
-                <select value={f.license} onChange={(e) => set('license', e.target.value)} style={{ ...inp, cursor: 'pointer' }}><option>Business Premium</option><option>None</option><option>Other</option></select></div>
-              <div style={{ flex: 1 }}><label style={lab}>Replacing (optional)</label>
-                <input value={f.replacement} onChange={(e) => set('replacement', e.target.value)} placeholder="e.g. Ali" style={inp} /></div>
-            </div>
+            <label style={lab}>Replacing (optional)</label>
+            <input value={f.replacement} onChange={(e) => set('replacement', e.target.value)} placeholder="e.g. Ali" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
               <div style={{ flex: 1 }}><label style={lab}>Office / location</label>
                 <input value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Intake — Floor 2" style={inp} /></div>
