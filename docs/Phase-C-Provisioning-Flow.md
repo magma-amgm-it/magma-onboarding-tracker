@@ -61,7 +61,15 @@ You'll paste these into Flow C-2. (The same call shows seats: `prepaidUnits.enab
 - **From (Send as):** `notifications@magma-amgm.org`
 - **To:** the task owners (fixed) — `abhishek.desai@magma-amgm.org; trevor.tower@magma-amgm.org; HRMAGMA@magma-amgm.org; don.gaudet@magma-amgm.org; <Krisha's email>`
   *(these are the IT / HR / Facilities / icare owners; update if people change)*
-- **Cc:** the managers (dynamic) — `ManagerUpn; DeptManagerUpn; UnitManagerUpn`
+- **Cc:** the managers, **de-duplicated and with blanks dropped** (the reporting manager is often
+  also the dept manager, and there may be no unit manager). Before the email action, add a
+  **Compose** named `CcList`:
+  `join(union(createArray(triggerOutputs()?['body/ManagerUpn'], triggerOutputs()?['body/DeptManagerUpn'], triggerOutputs()?['body/UnitManagerUpn']), createArray()), ';')`
+  then a **Filter array** on `outputs('CcList')`... simpler: use a **Compose** = the three emails,
+  a **Filter array** with condition *item() is not equal to (empty)*, wrap in `union(...)` to dedupe,
+  and `join(body('Filter_array'), ';')`. Put that join in the Cc field. *(Even if you skip this and
+  just list all three, Exchange de-dupes and ignores blanks on send — but the filter avoids the
+  occasional "invalid recipient" on an empty unit-manager.)*
 - **Subject:** `New hire starting — setup needed: [Title]`
 - **Body:** the **Notification** template below (includes the cost centre + each item spec).
 

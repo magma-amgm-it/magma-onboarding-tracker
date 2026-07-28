@@ -1223,20 +1223,22 @@ export default function App() {
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
               <div style={{ flex: 1 }}><label style={lab}>Department</label>
                 <select value={f.dept} onChange={(e) => { const d = e.target.value; setReqForm({ ...f, dept: d, unit: (depts[d] && depts[d].units[0]) || '' }); }} style={{ ...inp, cursor: 'pointer' }}>{allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}</select></div>
-              <div style={{ flex: 1 }}><label style={lab}>Start date</label>
-                <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={inp} /></div>
+              <div style={{ flex: 1 }}><label style={lab}>Unit <span style={{ color: MUTED }}>(if any)</span></label>
+                {depts[f.dept] && depts[f.dept].units.length > 0
+                  ? <select value={f.unit} onChange={(e) => set('unit', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{depts[f.dept].units.map(u => <option key={u} value={u}>{u}</option>)}</select>
+                  : <select disabled style={{ ...inp, cursor: 'default', color: MUTED }}><option>No units in this department</option></select>}
+              </div>
             </div>
-            {depts[f.dept] && depts[f.dept].units.length > 0 && (
-              <div style={{ marginBottom: 16 }}><label style={lab}>Unit within {depts[f.dept].name}</label>
-                <select value={f.unit} onChange={(e) => set('unit', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{depts[f.dept].units.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-            )}
-            <label style={lab}>Reporting manager <span style={{ color: MUTED }}>(who the new hire reports to)</span></label>
-            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search…" /></div>
-            <label style={lab}>Department manager <span style={{ color: MUTED }}>(CC'd, kept in the loop)</span></label>
+            <label style={lab}>Start date</label>
+            <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
+            <div style={{ fontSize: 13.5, color: MUTED, margin: '4px 0 10px' }}>The next three people are added so the right managers stay informed — pick whoever applies (they can be the same person).</div>
+            <label style={lab}>Reporting manager <span style={{ color: MUTED }}>— the new hire's direct supervisor</span></label>
+            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search the person they'll report to…" /></div>
+            <label style={lab}>Department manager <span style={{ color: MUTED }}>— head of the department, kept in the loop (often the same person)</span></label>
             <div style={{ marginBottom: 16 }}><PeoplePicker value={f.deptMgr} onChange={(p) => set('deptMgr', p)} placeholder="Search…" /></div>
             {depts[f.dept] && depts[f.dept].units.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <label style={lab}>Unit manager <span style={{ color: MUTED }}>(CC'd)</span></label>
+                <label style={lab}>Unit manager <span style={{ color: MUTED }}>— manager of the {f.unit || 'unit'}, kept in the loop</span></label>
                 <PeoplePicker value={f.unitMgr} onChange={(p) => set('unitMgr', p)} placeholder="Search…" />
               </div>
             )}
