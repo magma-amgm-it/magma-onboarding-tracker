@@ -281,11 +281,10 @@ export default function App() {
     : { name: me.name, roleLabel: roleTitle, dept: primaryDept };
 
   const meCard = { name: me.name, roleLabel: roleTitle, initials: ini(me.name || 'You') };
-  // capabilities. Ticking = verification. Allowed if you're the hire's NAMED manager (matched by
-  // email) — regardless of your role. This lets an HR person who also manages a department (e.g.
-  // Lara managing HR-dept hires) tick THEIR hires, while every other hire stays read-only for them.
-  // Admin can tick anything (support).
-  const canTickHire = (id) => role === 'admin' || (emps[id] && emps[id].managerUpn && emps[id].managerUpn === myUpn);
+  // capabilities. Ticking = the NEW HIRE's own responsibility: they mark each milestone as they're
+  // trained on it (their record that it was covered). Managers and HR VIEW progress; they don't tick.
+  // Allowed only if you ARE this hire (matched by email), plus admin for support.
+  const canTickHire = (id) => role === 'admin' || (emps[id] && emps[id].hireUpn && emps[id].hireUpn === myUpn);
   const canCreate = role === 'admin' || role === 'hr' || role === 'manager';
   const canReassign = role === 'admin' || role === 'hr';
   // pre-boarding provisioning capabilities
@@ -551,7 +550,7 @@ export default function App() {
   const ovTitle = isEmployee ? 'Your first' : isManager ? 'Your' : 'New hire onboarding,';
   const ovTitleEm = isEmployee ? 'ninety days.' : isManager ? 'team.' : 'every department.';
   const ovLede = isEmployee
-    ? 'Your manager checks off milestones as they verify your completed work. Follow your progress here across your first ninety days.'
+    ? 'Check off each milestone as you\'re trained on it — it\'s your record that it was covered. Your manager and HR can see your progress.'
     : isManager
       ? 'Track your new hires through their Month 1–3 milestones and verify completed work at each review checkpoint.'
       : 'A quiet, shared view of where each new hire is across their first ninety days — Month 1 to 3, color only where it matters.';
@@ -624,7 +623,7 @@ export default function App() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, letterSpacing: '0.01em', color: MUTED }}>{depts[rm.dept] ? depts[rm.dept].name : rm.dept}</div>
               <div style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 28, letterSpacing: '-0.015em', marginTop: '4px' }}>Your onboarding journey</div>
-              <div style={{ fontSize: 14, color: MUTED, marginTop: '6px' }}>{doneOf(checked, rm.empId)} OF {totalOf(rm.empId)} MILESTONES · VERIFIED BY YOUR MANAGER</div>
+              <div style={{ fontSize: 14, color: MUTED, marginTop: '6px' }}>{doneOf(checked, rm.empId)} OF {totalOf(rm.empId)} MILESTONES · YOURS TO CHECK OFF</div>
             </div>
             <CountUp end={overallPct} suffix="%" style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 44, letterSpacing: '-0.01em', color: overallColor }} />
           </div>
@@ -910,7 +909,7 @@ export default function App() {
         {!canTickThis && (
           <div style={{ fontSize: 13.5, color: MUTED, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '7px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
-            {isEmployee ? 'Read-only — your manager verifies and checks off each milestone.' : 'Read-only — only ' + mgrOf(id) + ' (this hire’s manager) checks these off.'}
+            Read-only — the new hire checks off their own milestones as they're trained on them.
           </div>
         )}
 

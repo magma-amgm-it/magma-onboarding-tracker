@@ -74,11 +74,13 @@ IT Admin, who has a "preview as" switcher for support/testing.
 | `MAGMA-OnboardingTracker-Managers` | `manager` | Contribute | **only their own assigned hires** (grouped by dept) | create (auto-self as mgr) | yes | no |
 | `MAGMA-OnboardingTracker-Users` | `employee` | Read | only their own journey | no | no | no |
 
-Key rules: **Ticking is per-hire, not per-role.** You can tick a milestone only for hires where
-**you are the named reporting manager** (matched by `ManagerUpn` = your email) — plus Admin, for
-support. So HR generally doesn't tick, **but an HR person who also manages a department** (e.g. Lara
-managing the HR department's own new hires) **can tick THOSE hires** right from their HR view, while
-every other hire stays read-only for them. This is the `canTickHire(id)` helper in `App.jsx`.
+Key rules: **New hires mark their own milestones.** A new hire ticks each milestone as they're
+trained on it — it is their acknowledgement that it was covered, and blanks become the HR-meeting
+conversation (HR asks the hire, then follows up with the manager). **Managers and HR VIEW only** —
+they don't tick. Admin can tick for support. This is the `canTickHire(id)` helper
+(`role === 'admin' || the hire's HireUpn === the signed-in user`). **Because new hires now WRITE
+their own completions, the Users group needs `Contribute` on the `MilestoneCompletions` list** (not
+just Read) — ideally break inheritance on that one list so they can only write completions.
 **Managers see only the hires where they are the named reporting manager**, so no manager→department
 mapping is needed. **Execs are read-only.** A new hire's identity match uses `HireUpn`. The IT
 Admin's preview switcher can view any role, with a dropdown to pick whose view to preview.
