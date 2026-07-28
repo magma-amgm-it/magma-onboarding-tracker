@@ -1233,13 +1233,11 @@ export default function App() {
             <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
             {depts[f.dept] && depts[f.dept].units.length > 0 ? (
               <>
-                <div style={{ fontSize: 13.5, color: MUTED, margin: '4px 0 10px' }}>This department has units, so pick who the new hire reports to plus the managers to keep in the loop (they can be the same person).</div>
-                <label style={lab}>Reporting manager <span style={{ color: MUTED }}>— the new hire's direct supervisor</span></label>
-                <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search the person they'll report to…" /></div>
-                <label style={lab}>Department manager <span style={{ color: MUTED }}>— head of the department, kept in the loop</span></label>
+                <div style={{ fontSize: 13.5, color: MUTED, margin: '4px 0 10px' }}>In a department with units the new hire reports to their unit manager — so pick the unit manager, plus the department manager to keep in the loop.</div>
+                <label style={lab}>Unit manager <span style={{ color: MUTED }}>— the new hire reports to them</span></label>
+                <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search the unit manager…" /></div>
+                <label style={lab}>Department manager <span style={{ color: MUTED }}>— kept in the loop</span></label>
                 <div style={{ marginBottom: 16 }}><PeoplePicker value={f.deptMgr} onChange={(p) => set('deptMgr', p)} placeholder="Search…" /></div>
-                <label style={lab}>Unit manager <span style={{ color: MUTED }}>— manager of the {f.unit || 'unit'}, kept in the loop</span></label>
-                <div style={{ marginBottom: 16 }}><PeoplePicker value={f.unitMgr} onChange={(p) => set('unitMgr', p)} placeholder="Search…" /></div>
               </>
             ) : (
               <>
