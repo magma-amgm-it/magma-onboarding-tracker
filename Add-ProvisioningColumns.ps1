@@ -40,6 +40,7 @@ function Add-TextColumn([string]$listName, [string]$colName) {
 
 Write-Host "[3/3] Adding columns..." -ForegroundColor Cyan
 Add-TextColumn 'ProvisioningRequests' 'Unit'
+Add-TextColumn 'ProvisioningTasks'    'Detail'
 
 Write-Host "`nDone." -ForegroundColor Green
 Disconnect-MgGraph | Out-Null

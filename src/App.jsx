@@ -357,30 +357,35 @@ export default function App() {
   /* ---- provisioning handlers ---- */
   const openReqModal = () => {
     const d0 = allDepts[0] || '';
-    setReqForm({ hire: null, managerP: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '', start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '' });
+    setReqForm({
+      name: '', email: '', managerP: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '',
+      start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '',
+      items: PROV_TASKS.map(([team, item]) => ({ team, item, needed: true, detail: '' })),
+    });
     setReqSaving(false); setReqOpen(true);
   };
   const openRequest = (id) => { setSelectedReqId(id); setView('request'); };
 
   async function submitRequest() {
     const f = reqForm;
-    if (!f || !f.hire || !f.hire.name) { setToast('Please pick the new hire from the directory.'); return; }
+    if (!f || !f.name || !f.name.trim()) { setToast('Please enter the new hire’s name.'); return; }
     setReqSaving(true);
     try {
+      const name = f.name.trim();
       const created = await createProvRequest({
-        Title: f.hire.name, Position: f.pos.trim(), Department: f.dept, Unit: f.unit || '', StartDate: f.start,
-        ReplacementFor: f.replacement.trim(), DesiredUpn: f.hire.upn || f.hire.mail || '',
+        Title: name, Position: f.pos.trim(), Department: f.dept, Unit: f.unit || '', StartDate: f.start,
+        ReplacementFor: f.replacement.trim(), DesiredUpn: (f.email || '').trim().toLowerCase(),
         LicenseType: f.license, Location: f.location.trim(), CostCentre: f.costCentre.trim(),
         ManagerName: f.managerP ? f.managerP.name : '', ManagerUpn: f.managerP ? (f.managerP.upn || f.managerP.mail || '') : '',
         Stage: 'Requested', SubmittedByName: me.name, Notes: f.notes.trim(),
       });
       const reqId = created && created.id ? Number(created.id) : 0;
-      for (const [team, item] of PROV_TASKS) {
-        await createProvTask({ Title: item, RequestId: reqId, HireName: f.hire.name, Team: team, Status: 'Required' });
+      for (const it of (f.items || [])) {
+        await createProvTask({ Title: it.item, RequestId: reqId, HireName: name, Team: it.team, Status: it.needed ? 'Required' : 'Not required', Detail: (it.detail || '').trim() });
       }
       if (syncRef.current) await syncRef.current.refresh();
       setReqOpen(false); setReqSaving(false);
-      setToast('Request submitted for ' + f.hire.name + '.');
+      setToast('Request submitted for ' + name + '.');
     } catch (e) {
       setReqSaving(false);
       setToast('Could not submit request: ' + (e.message || e));
@@ -1131,12 +1136,12 @@ export default function App() {
         <div style={{ fontSize: 18, fontFamily: "'Source Serif 4',Georgia,serif", margin: '6px 0 6px' }}>Setup tasks</div>
         <div style={{ fontSize: 13, color: MUTED, margin: '0 0 12px' }}>Each item is owned by a team — change the owner on the right if it should sit with someone else.</div>
         <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden' }}>
-          {tasks.map((t, i) => { const done = t.status === 'Done';
+          {tasks.map((t, i) => { const done = t.status === 'Done'; const na = t.status === 'Not required';
             return (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < tasks.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none' }}>
-                <div onClick={() => canTickTask && tickProvTask(t.id, !done)} className={canTickTask ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: canTickTask ? 'pointer' : 'default', borderRadius: 8, padding: '2px 4px', margin: '-2px -4px' }}>
-                  <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
-                  <span style={{ flex: 1, fontSize: 15, color: done ? MUTED : INK }}>{t.item}</span>
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < tasks.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none', opacity: na ? 0.6 : 1 }}>
+                <div onClick={() => !na && canTickTask && tickProvTask(t.id, !done)} className={(!na && canTickTask) ? 'rowhover' : ''} style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, cursor: (!na && canTickTask) ? 'pointer' : 'default', borderRadius: 8, padding: '2px 4px', margin: '-2px -4px' }}>
+                  {na ? <span style={{ width: 17, textAlign: 'center', color: MUTED, flex: 'none' }}>—</span> : <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>}
+                  <span style={{ flex: 1, fontSize: 15, color: (done || na) ? MUTED : INK }}>{t.item}{t.detail ? ' · ' + t.detail : ''}{na ? '  (not required)' : ''}</span>
                 </div>
                 {done && t.doneBy && <span style={{ fontSize: 13, color: MUTED }}>{t.doneBy}</span>}
                 {canProvision ? (
@@ -1157,6 +1162,7 @@ export default function App() {
   const NewRequestModal = () => {
     const f = reqForm; if (!f) return null;
     const set = (k, v) => setReqForm({ ...f, [k]: v });
+    const setItem = (idx, k, v) => setReqForm({ ...f, items: f.items.map((x, i) => i === idx ? { ...x, [k]: v } : x) });
     const inp = { width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' };
     const lab = { display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, margin: '0 0 7px' };
     return (
@@ -1167,8 +1173,10 @@ export default function App() {
             <h3 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: 0 }}>Request setup for a new hire</h3>
           </div>
           <div style={{ padding: '22px 26px' }}>
-            <label style={lab}>New hire <span style={{ color: MUTED }}>(search your directory)</span></label>
-            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.hire} onChange={(p) => set('hire', p)} placeholder="Type a name or email…" /></div>
+            <label style={lab}>New hire name</label>
+            <input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Mohamed Badrezzamane" style={{ ...inp, marginBottom: 16 }} />
+            <label style={lab}>Email to create <span style={{ color: MUTED }}>(the new account's address — may differ from the name)</span></label>
+            <input value={f.email} onChange={(e) => set('email', e.target.value)} placeholder="e.g. mohamed.badrezzamane@magma-amgm.org" style={{ ...inp, marginBottom: 16 }} />
             <label style={lab}>Position / title</label>
             <input value={f.pos} onChange={(e) => set('pos', e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
@@ -1194,6 +1202,17 @@ export default function App() {
                 <input value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Intake — Floor 2" style={inp} /></div>
               <div style={{ flex: 1 }}><label style={lab}>Cost centre</label>
                 <input value={f.costCentre} onChange={(e) => set('costCentre', e.target.value)} placeholder="e.g. 0001SET001" style={inp} /></div>
+            </div>
+            <label style={lab}>What they need <span style={{ color: MUTED }}>(untick anything not required; add a spec like "Laptop" or "#278")</span></label>
+            <div style={{ border: '1px solid oklch(0.88 0.012 70)', borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
+              {(f.items || []).map((it, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderBottom: idx < f.items.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none' }}>
+                  <div onClick={() => setItem(idx, 'needed', !it.needed)} style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', cursor: 'pointer', border: `1.5px solid ${it.needed ? INK : 'oklch(0.80 0.012 70)'}`, background: it.needed ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{it.needed && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
+                  <span style={{ width: 128, fontSize: 14, color: it.needed ? INK : MUTED }}>{it.item}</span>
+                  <span style={{ width: 64, fontSize: 12, color: MUTED }}>{it.team}</span>
+                  <input value={it.detail} onChange={(e) => setItem(idx, 'detail', e.target.value)} disabled={!it.needed} placeholder={it.needed ? 'detail (optional)' : 'not required'} style={{ flex: 1, fontSize: 13.5, padding: '6px 9px', borderRadius: 8, border: '1px solid oklch(0.88 0.012 70)', background: it.needed ? 'oklch(0.965 0.012 75)' : 'oklch(0.945 0.015 72)', color: INK, outline: 'none' }} />
+                </div>
+              ))}
             </div>
             <label style={lab}>Notes (optional)</label>
             <textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} rows={2} style={{ ...inp, resize: 'vertical' }} />

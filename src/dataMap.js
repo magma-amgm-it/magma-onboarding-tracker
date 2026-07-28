@@ -133,6 +133,7 @@ export function mapProvTasks(items) {
     hireName: it.HireName || '',
     team: it.Team || '',
     item: it.Title || '',
+    detail: it.Detail || '',
     status: it.Status || 'Required',
     doneBy: it.DoneByName || '',
     doneAt: it.DoneAt || '',
