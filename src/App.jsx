@@ -29,6 +29,18 @@ function roleFromGroups(names) {
   return null;
 }
 
+// Provisioning teams a person belongs to (independent of their onboarding role).
+const TEAM_GROUPS = {
+  'MAGMA-OnboardingTracker-Admins': 'IT',
+  'MAGMA-OnboardingTracker-HR': 'HR',
+  'MAGMA-OnboardingTracker-Facilities': 'Facilities',
+  'MAGMA-OnboardingTracker-icare': 'icare',
+};
+function teamsFromGroups(names) {
+  const set = new Set(names || []);
+  return Object.keys(TEAM_GROUPS).filter((g) => set.has(g)).map((g) => TEAM_GROUPS[g]);
+}
+
 const TODAY = new Date();
 
 /* ---- animated primitives ---- */
@@ -151,6 +163,7 @@ export default function App() {
   const [reqSaving, setReqSaving] = useState(false);
   const [reqForm, setReqForm] = useState(null);
   const [selectedReqId, setSelectedReqId] = useState(null);
+  const [myTeams, setMyTeams] = useState([]); // provisioning teams from group membership
 
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4200); return () => clearTimeout(t); }, [toast]);
@@ -172,9 +185,13 @@ export default function App() {
       email: (profile.mail || '').toLowerCase(),
     });
     const r = roleFromGroups(groups);
-    if (!r) { setPhase('denied'); return; }
-    setMyRole(r);
-    setRole(r);
+    const teams = teamsFromGroups(groups);
+    setMyTeams(teams);
+    if (!r && !teams.length) { setPhase('denied'); return; }
+    const effective = r || 'team';
+    setMyRole(effective);
+    setRole(effective);
+    if (!r && teams.length) setView('myTasks'); // pure team member lands on their tasks
     startSync();
   }
 
@@ -274,8 +291,8 @@ export default function App() {
   const empSubjectId = isEmployee ? (isITAdmin ? previewHireId : myHireId) : null;
   const primaryDept = scopeDepts[0] || null;
 
-  const roleTitle = { admin: 'Admin · IT', hr: 'HR', exec: 'Executive · read-only', manager: 'Manager', employee: 'New hire' }[role] || '';
-  const contextLabel = { admin: 'All departments', hr: 'All departments', exec: 'Oversight · read-only', manager: 'Your new hires', employee: 'Your onboarding' }[role] || '';
+  const roleTitle = { admin: 'Admin · IT', hr: 'HR', exec: 'Executive · read-only', manager: 'Manager', employee: 'New hire', team: 'Setup tasks' }[role] || '';
+  const contextLabel = { admin: 'All departments', hr: 'All departments', exec: 'Oversight · read-only', manager: 'Your new hires', employee: 'Your onboarding', team: 'Your setup tasks' }[role] || '';
   const rm = isEmployee
     ? { name: empSubjectId ? emps[empSubjectId].name : me.name, roleLabel: roleTitle, empId: empSubjectId, dept: empSubjectId ? emps[empSubjectId].dept : null }
     : { name: me.name, roleLabel: roleTitle, dept: primaryDept };
@@ -290,15 +307,17 @@ export default function App() {
   // pre-boarding provisioning capabilities
   const canProvision = role === 'admin' || role === 'hr';   // see + submit requests
   const canApprove = role === 'admin';                       // IT (Abhishek/Trevor) approves
-  const canTickTask = role === 'admin' || role === 'hr';     // Phase A: tick any; Phase B routes by team
+  const canTickTask = role === 'admin' || role === 'hr';     // ticking from the full request view
+  const isTeamOnly = role === 'team';                        // pure team member (no onboarding role)
+  const hasTeams = myTeams.length > 0;                       // belongs to any provisioning team
   const mgrOf = (id) => emps[id].manager || '—';
 
   /* ---- provisioning task set seeded on each new request ---- */
   const PROV_TASKS = [
-    ['IT', 'PC'], ['IT', 'Printer code'], ['IT', 'CRM access'], ['IT', 'icare'], ['IT', 'Client DB'], ['IT', 'Mobile / Teams'],
-    ['Admin', 'Access card'], ['HR', 'Photo ID'], ['Facilities', 'Office space & key'], ['Finance', 'Cost centre'],
+    ['IT', 'PC'], ['IT', 'Printer code'], ['IT', 'CRM access'], ['IT', 'Client DB'], ['IT', 'Mobile / Teams'],
+    ['icare', 'icare'], ['Facilities', 'Access card'], ['HR', 'Photo ID'], ['Facilities', 'Office space & key'],
   ];
-  const TEAMS = ['IT', 'Admin', 'HR', 'Facilities', 'Finance', 'Language'];
+  const TEAMS = ['IT', 'HR', 'Facilities', 'icare'];
   const LICENSES = ['Business Premium', 'Business Basic', 'None'];
 
   const goHome = () => { setView('home'); setDeptId(null); setEmpId(null); setListFilter(null); };
@@ -307,6 +326,7 @@ export default function App() {
   const openDept = (id) => { if (isEmployee) return; setView('dept'); setDeptId(id); setListFilter(null); };
   const openActivity = () => { if (isEmployee) return; setView('activity'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const openAcronyms = () => { setView('acronyms'); setDeptId(null); setEmpId(null); setListFilter(null); };
+  const openMyTasks = () => { setView('myTasks'); setDeptId(null); setEmpId(null); setListFilter(null); };
   const openJourney = (id) => { if (isEmployee && id !== rm.empId) return; setView('journey'); setEmpId(id); setMonth(1); };
 
   const overallPct = scopeEmps.length ? Math.round(scopeEmps.reduce((a, id) => a + pctOf(checked, id), 0) / scopeEmps.length) : 0;
@@ -358,7 +378,7 @@ export default function App() {
   const openReqModal = () => {
     const d0 = allDepts[0] || '';
     setReqForm({
-      name: '', email: '', managerP: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '',
+      name: '', email: '', managerP: null, deptMgr: null, unitMgr: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '',
       start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '',
       items: PROV_TASKS.map(([team, item]) => ({ team, item, needed: true, detail: '' })),
     });
@@ -377,6 +397,8 @@ export default function App() {
         ReplacementFor: f.replacement.trim(), DesiredUpn: (f.email || '').trim().toLowerCase(),
         LicenseType: f.license, Location: f.location.trim(), CostCentre: f.costCentre.trim(),
         ManagerName: f.managerP ? f.managerP.name : '', ManagerUpn: f.managerP ? (f.managerP.upn || f.managerP.mail || '') : '',
+        DeptManagerName: f.deptMgr ? f.deptMgr.name : '', DeptManagerUpn: f.deptMgr ? (f.deptMgr.upn || f.deptMgr.mail || '') : '',
+        UnitManagerName: f.unitMgr ? f.unitMgr.name : '', UnitManagerUpn: f.unitMgr ? (f.unitMgr.upn || f.unitMgr.mail || '') : '',
         Stage: 'Requested', SubmittedByName: me.name, Notes: f.notes.trim(),
       });
       const reqId = created && created.id ? Number(created.id) : 0;
@@ -440,7 +462,7 @@ export default function App() {
         </div>
       </div>
 
-      {!isEmployee && (
+      {!isEmployee && !isTeamOnly && (
         <div>
           <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '8px 0' }}>Departments</div>
           {scopeDepts.map(id => {
@@ -456,10 +478,11 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>{isEmployee ? 'My onboarding' : 'Views'}</div>
-      <div onClick={goHome} className="rowhover" style={sideItem(view === 'home' && !searching)}><span>{isEmployee ? 'My journey' : 'Overview'}</span></div>
+      <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>{isEmployee ? 'My onboarding' : isTeamOnly ? 'Workspace' : 'Views'}</div>
+      {!isTeamOnly && <div onClick={goHome} className="rowhover" style={sideItem(view === 'home' && !searching)}><span>{isEmployee ? 'My journey' : 'Overview'}</span></div>}
+      {hasTeams && <div onClick={openMyTasks} className="rowhover" style={sideItem((view === 'myTasks' || (isTeamOnly && view === 'home')) && !searching)}><span>My setup tasks</span><span style={{ fontSize: 14, color: MUTED }}>{provTasks.filter(t => myTeams.includes(t.team) && t.status === 'Required').length || ''}</span></div>}
       <div onClick={openAcronyms} className="rowhover" style={sideItem(view === 'acronyms' && !searching)}><span>Acronyms</span></div>
-      {!isEmployee && (
+      {!isEmployee && !isTeamOnly && (
         <div>
           <div onClick={() => openList('attention')} className="rowhover" style={sideItem(view === 'list' && listFilter === 'attention')}>
             <span>Needs attention</span><span style={{ fontSize: 14, color: MUTED }}>{needsAttention}</span>
@@ -470,7 +493,7 @@ export default function App() {
         </div>
       )}
 
-      {!isEmployee && (
+      {!isEmployee && !isTeamOnly && (
         <div>
           <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '18px 0 8px' }}>Workspace</div>
           {canProvision && (
@@ -1132,6 +1155,9 @@ export default function App() {
           {field('Location', r.location)}
           {field('Cost centre', r.costCentre)}
         </div>
+        {(r.deptManagerName || r.unitManagerName) && (
+          <div style={{ fontSize: 13.5, color: MUTED, margin: '0 0 18px' }}>Kept in the loop (CC'd): {[r.managerName, r.deptManagerName, r.unitManagerName].filter(Boolean).join(' · ')}</div>
+        )}
         {(r.stage === 'Approved' || r.stage === 'Provisioned') && (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
             {[['Account created', r.accountCreated], ['Licence assigned', r.licenseAssigned], ['Temp password sent', r.tempPasswordSent]].map(([labl, ok]) => (
@@ -1202,8 +1228,16 @@ export default function App() {
               <div style={{ marginBottom: 16 }}><label style={lab}>Unit within {depts[f.dept].name}</label>
                 <select value={f.unit} onChange={(e) => set('unit', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{depts[f.dept].units.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
             )}
-            <label style={lab}>Reporting manager</label>
+            <label style={lab}>Reporting manager <span style={{ color: MUTED }}>(who the new hire reports to)</span></label>
             <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search…" /></div>
+            <label style={lab}>Department manager <span style={{ color: MUTED }}>(CC'd, kept in the loop)</span></label>
+            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.deptMgr} onChange={(p) => set('deptMgr', p)} placeholder="Search…" /></div>
+            {depts[f.dept] && depts[f.dept].units.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={lab}>Unit manager <span style={{ color: MUTED }}>(CC'd)</span></label>
+                <PeoplePicker value={f.unitMgr} onChange={(p) => set('unitMgr', p)} placeholder="Search…" />
+              </div>
+            )}
             <label style={lab}>Replacing (optional)</label>
             <input value={f.replacement} onChange={(e) => set('replacement', e.target.value)} placeholder="e.g. Ali" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
@@ -1231,6 +1265,48 @@ export default function App() {
             <button onClick={submitRequest} disabled={reqSaving} className="lift" style={{ border: `1px solid ${INK}`, cursor: reqSaving ? 'default' : 'pointer', fontSize: 14, fontWeight: 500, padding: '10px 18px', borderRadius: 10, background: INK, color: 'oklch(0.965 0.012 75)', opacity: reqSaving ? 0.7 : 1 }}>{reqSaving ? 'Submitting…' : 'Submit request'}</button>
           </div>
         </div>
+      </div>
+    );
+  };
+
+  /* ---- my setup tasks (team member's own queue) ---- */
+  const MyTasksView = () => {
+    const set = new Set(myTeams);
+    const rejected = new Set(provRequests.filter(r => r.stage === 'Rejected').map(r => r.id));
+    const mine = provTasks.filter(t => set.has(t.team) && t.status !== 'Not required' && !rejected.has(t.requestId));
+    const byReq = {};
+    mine.forEach(t => { (byReq[t.requestId] = byReq[t.requestId] || []).push(t); });
+    const reqIds = Object.keys(byReq).sort((a, b) => {
+      const ra = provRequests.find(x => x.id === a), rb = provRequests.find(x => x.id === b);
+      return new Date(ra && ra.start || 0) - new Date(rb && rb.start || 0);
+    });
+    const openN = mine.filter(t => t.status !== 'Done').length;
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 900 }}>
+        <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0 }}>My setup tasks</h1>
+        <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '12px 0 8px', maxWidth: 560 }}>Setup items for your team{myTeams.length > 1 ? 's' : ''} ({myTeams.join(', ')}) across incoming new hires. Tick each off once it's done.</p>
+        <div style={{ fontSize: 13.5, color: openN ? WARN : OK, marginBottom: 22 }}>{openN} open</div>
+        {reqIds.length ? reqIds.map(rid => {
+          const r = provRequests.find(x => x.id === rid);
+          const list = byReq[rid];
+          const hire = list[0].hireName || (r && r.name) || 'New hire';
+          return (
+            <div key={rid} style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 15.5, fontWeight: 500, color: INK, margin: '0 0 8px' }}>{hire}<span style={{ color: MUTED, fontWeight: 400 }}>{r && depts[r.dept] ? ' · ' + depts[r.dept].name : ''}{r && r.unit ? ' · ' + r.unit : ''}{r && r.start ? ' · starts ' + fmtDate(r.start) : ''}{r && r.stage === 'Requested' ? ' · not yet approved' : ''}</span></div>
+              <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, overflow: 'hidden' }}>
+                {list.map((t, i) => { const done = t.status === 'Done';
+                  return (
+                    <div key={t.id} onClick={() => tickProvTask(t.id, !done)} className="rowhover" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < list.length - 1 ? '1px solid oklch(0.92 0.010 72)' : 'none', cursor: 'pointer' }}>
+                      <div style={{ width: 17, height: 17, borderRadius: 5, flex: 'none', border: `1.5px solid ${done ? INK : 'oklch(0.80 0.012 70)'}`, background: done ? INK : 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center' }}>{done && <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="oklch(0.985 0.006 80)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 6 2.5 2.5L10 3"></path></svg>}</div>
+                      <span style={{ flex: 1, fontSize: 15, color: done ? MUTED : INK }}>{t.item}{t.detail ? ' · ' + t.detail : ''}</span>
+                      <span style={{ fontSize: 13, color: MUTED }}>{t.team}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }) : <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: 40, textAlign: 'center', color: MUTED, fontSize: 15 }}>Nothing for your team right now — new setup tasks will show up here as requests come in.</div>}
       </div>
     );
   };
@@ -1273,6 +1349,7 @@ export default function App() {
   else if (view === 'provisioning') content = ProvisioningView();
   else if (view === 'request') content = RequestDetail();
   else if (view === 'acronyms') content = AcronymsView();
+  else if (view === 'myTasks' || (isTeamOnly && view === 'home')) content = MyTasksView();
   else if (view === 'journey') content = Journey();
   else content = Overview();
 

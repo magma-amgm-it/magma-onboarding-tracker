@@ -11,10 +11,10 @@ export function createDataSyncManager(onDataUpdate, onError) {
   async function fetchAllData() {
     try {
       const [departments, milestoneTemplates, newHires, completions, provRequests, provTasks] = await Promise.all([
-        getDepartments(),
-        getMilestoneTemplates(),
-        getNewHires(),
-        getCompletions(),
+        getDepartments().catch(() => []),
+        getMilestoneTemplates().catch(() => []),
+        getNewHires().catch(() => []),
+        getCompletions().catch(() => []),
         getProvRequests().catch(() => []),
         getProvTasks().catch(() => []),
       ]);
