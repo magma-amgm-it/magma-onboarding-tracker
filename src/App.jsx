@@ -332,7 +332,24 @@ export default function App() {
   const overallPct = scopeEmps.length ? Math.round(scopeEmps.reduce((a, id) => a + pctOf(checked, id), 0) / scopeEmps.length) : 0;
   const overallColor = colorFor(overallPct);
   const onTrack = scopeEmps.filter((id) => pctOf(checked, id) >= 70).length;
-  const attentionIds = scopeEmps.filter((id) => pctOf(checked, id) < 40);
+  // "Needs attention" = behind on a review period that has ALREADY elapsed — i.e. today is past
+  // their 30/60/90-day mark but that month's milestones aren't all ticked. A brand-new or on-pace
+  // hire has no elapsed-and-incomplete period, so they never flag (unlike the old flat < 40% rule).
+  const _todayISO = new Date().toISOString().slice(0, 10);
+  const monthDone = (ck, id, m) => {
+    const arr = (milestones[emps[id].dept] || {})[m] || [];
+    for (let i = 0; i < arr.length; i++) if (!ck[`${id}|${m}|${i}`]) return false;
+    return true; // empty month = nothing owed = not behind
+  };
+  const isBehind = (id) => {
+    const rv = (emps[id] && emps[id].reviews) || [];
+    for (let m = 1; m <= 3; m++) {
+      const deadline = rv[m - 1];
+      if (deadline && _todayISO > deadline && !monthDone(checked, id, m)) return true;
+    }
+    return false;
+  };
+  const attentionIds = scopeEmps.filter(isBehind);
   const completedIds = scopeEmps.filter((id) => pctOf(checked, id) === 100);
   const needsAttention = attentionIds.length;
   const completedCount = completedIds.length;
@@ -732,8 +749,8 @@ export default function App() {
     const ids = listFilter === 'attention' ? attentionIds : completedIds;
     const rows = ids.map(rowFor);
     const title = listFilter === 'attention' ? 'Needs attention' : 'Completed';
-    const blurb = listFilter === 'attention' ? 'New hires below 40% completion — these journeys may need a check-in.' : 'New hires who have completed every Month 1–3 milestone.';
-    const empty = listFilter === 'attention' ? 'No one needs attention right now — every new hire is at 40% or above.' : 'No completed journeys yet.';
+    const blurb = listFilter === 'attention' ? 'New hires past a review deadline (30/60/90-day) with that month’s milestones still open — these need a check-in.' : 'New hires who have completed every Month 1–3 milestone.';
+    const empty = listFilter === 'attention' ? 'No one needs attention — every new hire is on pace with their milestones.' : 'No completed journeys yet.';
     return (
       <div style={{ padding: '40px 48px 64px', maxWidth: 1080 }}>
         <button onClick={goHome} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, letterSpacing: '0.01em', color: MUTED, padding: 0, marginBottom: '24px' }}>‹ Overview</button>
