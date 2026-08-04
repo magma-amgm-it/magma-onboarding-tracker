@@ -292,8 +292,9 @@ as new hires (Approve / Reject by Abhishek or Trevor).
 
 **As built:**
 - **List** `ReturningEmployees` (Title=name, Upn, ReturnDate, Notes) — created by `Create-ReturningEmployeesList.ps1`.
-- **App tab** "Returning employees" in the tracker (sidebar, gated to Admin/HR = `canProvision`). HR submits
-  via a form (name, email, return date, notes) → writes a `ReturningEmployees` row. No raw SharePoint for HR.
+- **App tab** "Returning employees" in the tracker (sidebar, gated to Admin/HR = `canProvision`). HR **picks
+  the employee from the directory** (PeoplePicker — their account already exists, so it auto-fills name + UPN
+  and shows "Sign-in to re-enable: …"), sets return date + notes → writes a `ReturningEmployees` row. No raw SharePoint for HR.
   Code: `graphApi.getReturning/createReturning`, `dataSync` fetch, `dataMap.mapReturning`, and in `App.jsx`
   the `ReturningView` + `ReturningModal` + `openRetModal`/`submitReturning` (mirrors the New-hire request pattern).
 - **Flow `MAGMA Returning Employee`:** trigger on `ReturningEmployees` item created → **Start and wait for an

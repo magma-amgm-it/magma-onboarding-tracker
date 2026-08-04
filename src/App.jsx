@@ -167,7 +167,7 @@ export default function App() {
   // returning-employee (reboarding) request modal
   const [retOpen, setRetOpen] = useState(false);
   const [retSaving, setRetSaving] = useState(false);
-  const [retForm, setRetForm] = useState({ name: '', upn: '', returnDate: new Date().toISOString().slice(0, 10), notes: '' });
+  const [retForm, setRetForm] = useState({ person: null, name: '', upn: '', returnDate: new Date().toISOString().slice(0, 10), notes: '' });
 
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4200); return () => clearTimeout(t); }, [toast]);
@@ -438,7 +438,7 @@ export default function App() {
 
   /* ---- returning-employee handlers ---- */
   const openRetModal = () => {
-    setRetForm({ name: '', upn: '', returnDate: new Date().toISOString().slice(0, 10), notes: '' });
+    setRetForm({ person: null, name: '', upn: '', returnDate: new Date().toISOString().slice(0, 10), notes: '' });
     setRetSaving(false); setRetOpen(true);
   };
   async function submitReturning() {
@@ -1208,10 +1208,9 @@ export default function App() {
             <h3 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: 0 }}>Log a returning employee</h3>
           </div>
           <div style={{ padding: '22px 26px' }}>
-            <label style={lab}>Employee name</label>
-            <input value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Sara Mahmoud" style={{ ...inp, marginBottom: 16 }} />
-            <label style={lab}>Their email <span style={{ color: MUTED }}>(the account whose sign-in gets re-enabled)</span></label>
-            <input value={f.upn} onChange={(e) => set('upn', e.target.value)} placeholder="e.g. sara.mahmoud@magma-amgm.org" style={{ ...inp, marginBottom: 16 }} />
+            <label style={lab}>Returning employee <span style={{ color: MUTED }}>(search the directory — their account already exists)</span></label>
+            <div style={{ marginBottom: f.upn ? 6 : 16 }}><PeoplePicker value={f.person} onChange={(p) => setRetForm({ ...f, person: p, name: p ? p.name : '', upn: p ? (p.upn || p.mail || '') : '' })} placeholder="Search their name…" /></div>
+            {f.upn && <div style={{ fontSize: 13.5, color: MUTED, margin: '0 0 16px' }}>Sign-in to re-enable: <strong style={{ color: INK }}>{f.upn}</strong></div>}
             <label style={lab}>Return date</label>
             <input type="date" value={f.returnDate} onChange={(e) => set('returnDate', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
             <label style={lab}>Notes <span style={{ color: MUTED }}>(optional)</span></label>
