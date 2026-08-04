@@ -11,6 +11,7 @@ export const LIST_NAMES = {
   completions: 'MilestoneCompletions',
   provRequests: 'ProvisioningRequests',
   provTasks: 'ProvisioningTasks',
+  returning: 'ReturningEmployees',
 };
 
 /* ---- low-level fetch with token, 429 back-off, friendly errors ---- */
@@ -141,6 +142,11 @@ export function createProvRequest(fields) { return createListItem(LIST_NAMES.pro
 export function updateProvRequest(id, fields) { return updateListItem(LIST_NAMES.provRequests, id, fields); }
 export function createProvTask(fields) { return createListItem(LIST_NAMES.provTasks, fields); }
 export function updateProvTask(id, fields) { return updateListItem(LIST_NAMES.provTasks, id, fields); }
+
+/* ---- returning employees (reboarding) ---- */
+export const getReturning = () => getListItems(LIST_NAMES.returning);
+// Expected fields: { Title (name), Upn, ReturnDate, Notes }
+export function createReturning(fields) { return createListItem(LIST_NAMES.returning, fields); }
 
 /* ---- signed-in user + role ---- */
 export async function getMe() {

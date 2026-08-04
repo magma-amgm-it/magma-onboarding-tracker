@@ -282,7 +282,27 @@ user-delegated).
 
 ---
 
-## Future module — Returning Employees (leave / return)  ← requested by Lara, 2026-07-29
+## Returning Employees (leave / return)  ← requested by Lara — ✅ v1 BUILT 2026-08-04
+
+**Scope Abhishek locked (leaner than the original design):** no group re-add (MAGMA never removes people
+from groups on leave); the mailbox shared↔user flip stays an IT-only manual step and is **not** surfaced
+to HR; the automated value is **re-enabling sign-in** so the returner can use email again, plus **one
+heads-up email** (no tracking/follow-up) to reactivate card + iCare if needed. Same **IT approval gate**
+as new hires (Approve / Reject by Abhishek or Trevor).
+
+**As built:**
+- **List** `ReturningEmployees` (Title=name, Upn, ReturnDate, Notes) — created by `Create-ReturningEmployeesList.ps1`.
+- **App tab** "Returning employees" in the tracker (sidebar, gated to Admin/HR = `canProvision`). HR submits
+  via a form (name, email, return date, notes) → writes a `ReturningEmployees` row. No raw SharePoint for HR.
+  Code: `graphApi.getReturning/createReturning`, `dataSync` fetch, `dataMap.mapReturning`, and in `App.jsx`
+  the `ReturningView` + `ReturningModal` + `openRetModal`/`submitReturning` (mirrors the New-hire request pattern).
+- **Flow `MAGMA Returning Employee`:** trigger on `ReturningEmployees` item created → **Start and wait for an
+  approval** (Approve/Reject, to Abhishek+Trevor) → on **Approve**: HTTP `PATCH /users/{Upn}` `accountEnabled=true`
+  (built-in HTTP + app OAuth, same app/secret as C-2) → Compose `ReturnBody` (green branded card) → Send email
+  V2 from `notifications@` to Don+Krisha, cc Lara+Abhishek ("sign-in re-enabled; reactivate card/iCare if needed").
+  On **Reject**: nothing happens (sign-in stays off).
+
+**Original design notes (for the fuller version, if ever wanted):**
 
 Lara asked (email, 2026-07-29) to add two tabs to the pre-boarding area: **New Hires** and **Returning
 Employees (Maternity or Medical Leave)**. New Hires flows into onboarding as today (reminder: the new

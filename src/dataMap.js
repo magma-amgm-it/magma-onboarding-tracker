@@ -144,6 +144,18 @@ export function mapProvTasks(items) {
   }));
 }
 
+/* ---- returning employees (reboarding) ---- */
+export function mapReturning(items) {
+  return (items || []).map((it) => ({
+    id: String(it.id),
+    name: it.Title || '(unnamed)',
+    upn: (it.Upn || '').toLowerCase(),
+    returnDate: dOnly(it.ReturnDate),
+    notes: it.Notes || '',
+    created: it.createdDateTime || '',
+  }));
+}
+
 export function mapAll(raw) {
   const depts = mapDepartments(raw.departments);
   const milestones = mapMilestones(raw.milestoneTemplates);
@@ -151,5 +163,6 @@ export function mapAll(raw) {
   const { checked, compIndex, events } = mapCompletions(raw.completions);
   const provRequests = mapProvRequests(raw.provRequests);
   const provTasks = mapProvTasks(raw.provTasks);
-  return { depts, milestones, emps, checked, compIndex, events, provRequests, provTasks };
+  const returning = mapReturning(raw.returning);
+  return { depts, milestones, emps, checked, compIndex, events, provRequests, provTasks, returning };
 }
