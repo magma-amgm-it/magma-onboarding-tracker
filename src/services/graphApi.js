@@ -12,6 +12,7 @@ export const LIST_NAMES = {
   provRequests: 'ProvisioningRequests',
   provTasks: 'ProvisioningTasks',
   returning: 'ReturningEmployees',
+  offboarding: 'Offboarding',
 };
 
 /* ---- low-level fetch with token, 429 back-off, friendly errors ---- */
@@ -147,6 +148,11 @@ export function updateProvTask(id, fields) { return updateListItem(LIST_NAMES.pr
 export const getReturning = () => getListItems(LIST_NAMES.returning);
 // Expected fields: { Title (name), Upn, ReturnDate, Notes }
 export function createReturning(fields) { return createListItem(LIST_NAMES.returning, fields); }
+
+/* ---- offboarding (leaver) ---- */
+export const getOffboarding = () => getListItems(LIST_NAMES.offboarding);
+// Expected fields: { Title (name), LeaverUpn, ManagerName, ManagerUpn, LeaveDate, Notes, Stage }
+export function createOffboarding(fields) { return createListItem(LIST_NAMES.offboarding, fields); }
 
 /* ---- signed-in user + role ---- */
 export async function getMe() {

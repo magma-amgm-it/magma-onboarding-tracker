@@ -5,7 +5,7 @@ import {
   managerOptions, ini, colorFor, isOrgWide, fmtDate,
 } from './data.js';
 import { login, logout, getActiveAccount } from './services/auth.js';
-import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople, createProvRequest, updateProvRequest, createProvTask, updateProvTask, createReturning } from './services/graphApi.js';
+import { getMe, getMyGroupNames, createNewHire, updateNewHire, upsertCompletion, searchPeople, createProvRequest, updateProvRequest, createProvTask, updateProvTask, createReturning, createOffboarding } from './services/graphApi.js';
 import { createDataSyncManager } from './services/dataSync.js';
 import { mapAll } from './dataMap.js';
 import { ACRONYMS } from './acronyms.js';
@@ -168,6 +168,10 @@ export default function App() {
   const [retOpen, setRetOpen] = useState(false);
   const [retSaving, setRetSaving] = useState(false);
   const [retForm, setRetForm] = useState({ person: null, name: '', upn: '', returnDate: new Date().toISOString().slice(0, 10), notes: '' });
+  // offboarding (leaver) request modal
+  const [offOpen, setOffOpen] = useState(false);
+  const [offSaving, setOffSaving] = useState(false);
+  const [offForm, setOffForm] = useState({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), notes: '' });
 
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4200); return () => clearTimeout(t); }, [toast]);
@@ -252,6 +256,7 @@ export default function App() {
   const provRequests = data.provRequests || [];
   const provTasks = data.provTasks || [];
   const returning = data.returning || [];
+  const offboarding = data.offboarding || [];
   const allDepts = Object.keys(depts);
 
   /* ---- identity → which hires this (effective) role can see ---- */
@@ -457,6 +462,31 @@ export default function App() {
     }
   }
 
+  /* ---- offboarding handlers ---- */
+  const openOffModal = () => {
+    setOffForm({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), notes: '' });
+    setOffSaving(false); setOffOpen(true);
+  };
+  async function submitOffboarding() {
+    const f = offForm;
+    if (!f || !f.name.trim() || !f.upn.trim()) { setToast('Please pick the employee who is leaving.'); return; }
+    if (!f.managerP) { setToast('Please pick the manager who keeps their mailbox and files.'); return; }
+    setOffSaving(true);
+    try {
+      await createOffboarding({
+        Title: f.name.trim(), LeaverUpn: f.upn.trim().toLowerCase(),
+        ManagerName: f.managerP.name, ManagerUpn: (f.managerP.upn || f.managerP.mail || ''),
+        LeaveDate: f.leaveDate, Notes: (f.notes || '').trim(), Stage: 'Requested',
+      });
+      if (syncRef.current) await syncRef.current.refresh();
+      setOffOpen(false); setOffSaving(false);
+      setToast('Offboarding request submitted for ' + f.name.trim() + '. IT will approve it.');
+    } catch (e) {
+      setOffSaving(false);
+      setToast('Could not submit: ' + (e.message || e));
+    }
+  }
+
   async function approveRequest(id, approve) {
     const r = provRequests.find((x) => x.id === id);
     if (!r) return;
@@ -548,6 +578,11 @@ export default function App() {
           {canProvision && (
             <div onClick={() => { setView('returning'); setDeptId(null); setEmpId(null); setListFilter(null); }} className="rowhover" style={sideItem(view === 'returning' && !searching)}>
               <span>Returning employees</span>
+            </div>
+          )}
+          {canProvision && (
+            <div onClick={() => { setView('offboarding'); setDeptId(null); setEmpId(null); setListFilter(null); }} className="rowhover" style={sideItem(view === 'offboarding' && !searching)}>
+              <span>Offboarding</span>
             </div>
           )}
           <div onClick={openActivity} className="rowhover" style={sideItem(view === 'activity' && !searching)}><span>Activity log</span></div>
@@ -1225,6 +1260,61 @@ export default function App() {
     );
   };
 
+  const OffboardingView = () => {
+    const rows = [...offboarding].sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+    return (
+      <div style={{ padding: '40px 48px 64px', maxWidth: 1000 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <h1 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 38, letterSpacing: '-0.02em', margin: 0 }}>Offboarding</h1>
+          <button onClick={openOffModal} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 14.5, fontWeight: 500, padding: '8px 15px', borderRadius: 999, background: INK, color: 'oklch(0.965 0.012 75)', display: 'flex', alignItems: 'center', gap: 7 }}><span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New offboarding</button>
+        </div>
+        <p style={{ fontSize: 15, color: 'oklch(0.44 0.010 60)', margin: '0 0 26px', maxWidth: 640 }}>Log someone leaving. Once IT approves, their sign-in is blocked, their OneDrive is shared with their manager, their mailbox becomes a shared mailbox delegated to the manager, and their licence is freed up for a new hire.</p>
+        <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, overflow: 'hidden' }}>
+          {rows.map(r => (
+            <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr', gap: 16, padding: '16px 22px', borderBottom: '1px solid oklch(0.92 0.010 72)', alignItems: 'center' }}>
+              <div><div style={{ fontSize: 15.5, fontWeight: 500, color: INK }}>{r.name}</div><div style={{ fontSize: 14, color: MUTED, marginTop: 2 }}>{r.leaverUpn || '—'}</div></div>
+              <span style={{ fontSize: 14.5, color: 'oklch(0.44 0.010 60)' }}>Mailbox &amp; files → {r.managerName || '—'}</span>
+              <span style={{ fontSize: 14.5, color: r.stage === 'Offboarded' ? OK : MUTED, textAlign: 'right' }}>{r.stage === 'Offboarded' ? 'Done ✓' : r.stage === 'Rejected' ? 'Rejected' : (r.leaveDate ? 'Leaves ' + fmtDate(r.leaveDate) : (r.stage || '—'))}</span>
+            </div>
+          ))}
+          {!rows.length && <div style={{ padding: 40, textAlign: 'center', color: MUTED, fontSize: 15 }}>No offboarding requests yet — hit “New offboarding” to add one.</div>}
+        </div>
+      </div>
+    );
+  };
+
+  const OffboardingModal = () => {
+    const f = offForm;
+    const set = (k, v) => setOffForm({ ...f, [k]: v });
+    const inp = { width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' };
+    const lab = { display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, margin: '0 0 7px' };
+    return (
+      <div onClick={() => !offSaving && setOffOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'oklch(0.22 0.012 60 / 0.28)', display: 'grid', placeItems: 'center', padding: 24, backdropFilter: 'blur(2px)' }}>
+        <div onClick={(e) => e.stopPropagation()} className="successcard" style={{ width: 540, maxWidth: '100%', background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 18, overflow: 'hidden', maxHeight: '92vh', overflowY: 'auto' }}>
+          <div style={{ padding: '24px 26px 16px', borderBottom: '1px solid oklch(0.92 0.010 72)' }}>
+            <div style={{ fontSize: 13.5, color: MUTED, marginBottom: 9 }}>Offboarding</div>
+            <h3 style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontWeight: 400, fontSize: 30, letterSpacing: '-0.015em', margin: 0 }}>Offboard an employee</h3>
+          </div>
+          <div style={{ padding: '22px 26px' }}>
+            <label style={lab}>Employee leaving <span style={{ color: MUTED }}>(search the directory)</span></label>
+            <div style={{ marginBottom: f.upn ? 6 : 16 }}><PeoplePicker value={f.person} onChange={(p) => setOffForm({ ...f, person: p, name: p ? p.name : '', upn: p ? (p.upn || p.mail || '') : '' })} placeholder="Search their name…" /></div>
+            {f.upn && <div style={{ fontSize: 13.5, color: MUTED, margin: '0 0 16px' }}>Account: <strong style={{ color: INK }}>{f.upn}</strong></div>}
+            <label style={lab}>Manager <span style={{ color: MUTED }}>— gets their mailbox &amp; OneDrive</span></label>
+            <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search the manager…" /></div>
+            <label style={lab}>Last day</label>
+            <input type="date" value={f.leaveDate} onChange={(e) => set('leaveDate', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
+            <label style={lab}>Notes <span style={{ color: MUTED }}>(optional)</span></label>
+            <textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything IT should know" rows={3} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} />
+          </div>
+          <div style={{ padding: '16px 26px 24px', borderTop: '1px solid oklch(0.92 0.010 72)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button onClick={() => setOffOpen(false)} disabled={offSaving} style={{ border: '1px solid oklch(0.88 0.012 70)', cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '10px 18px', borderRadius: 10, background: 'oklch(0.985 0.006 80)', color: 'oklch(0.44 0.010 60)' }}>Cancel</button>
+            <button onClick={submitOffboarding} disabled={offSaving} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '10px 20px', borderRadius: 10, background: INK, color: 'oklch(0.965 0.012 75)' }}>{offSaving ? 'Submitting…' : 'Submit for approval'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const RequestDetail = () => {
     const r = provRequests.find(x => x.id === selectedReqId);
     if (!r) return null;
@@ -1462,6 +1552,7 @@ export default function App() {
   else if (view === 'activity') content = ActivityFeed();
   else if (view === 'provisioning') content = ProvisioningView();
   else if (view === 'returning') content = ReturningView();
+  else if (view === 'offboarding') content = OffboardingView();
   else if (view === 'request') content = RequestDetail();
   else if (view === 'acronyms') content = AcronymsView();
   else if (view === 'myTasks' || (isTeamOnly && view === 'home')) content = MyTasksView();
@@ -1480,6 +1571,7 @@ export default function App() {
       {assignOpen && AssignModal()}
       {reqOpen && NewRequestModal()}
       {retOpen && ReturningModal()}
+      {offOpen && OffboardingModal()}
       {toast && (
         <div style={{ position: 'fixed', left: '50%', bottom: 26, transform: 'translateX(-50%)', zIndex: 90, background: INK, color: 'oklch(0.965 0.012 75)', padding: '11px 18px', borderRadius: 10, fontSize: 14.5, boxShadow: '0 12px 30px -10px rgba(40,30,10,.5)', maxWidth: 520 }}>{toast}</div>
       )}

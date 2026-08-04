@@ -156,6 +156,21 @@ export function mapReturning(items) {
   }));
 }
 
+/* ---- offboarding (leaver) ---- */
+export function mapOffboarding(items) {
+  return (items || []).map((it) => ({
+    id: String(it.id),
+    name: it.Title || '(unnamed)',
+    leaverUpn: (it.LeaverUpn || '').toLowerCase(),
+    managerName: it.ManagerName || '',
+    managerUpn: (it.ManagerUpn || '').toLowerCase(),
+    leaveDate: dOnly(it.LeaveDate),
+    notes: it.Notes || '',
+    stage: it.Stage || 'Requested',
+    created: it.createdDateTime || '',
+  }));
+}
+
 export function mapAll(raw) {
   const depts = mapDepartments(raw.departments);
   const milestones = mapMilestones(raw.milestoneTemplates);
@@ -164,5 +179,6 @@ export function mapAll(raw) {
   const provRequests = mapProvRequests(raw.provRequests);
   const provTasks = mapProvTasks(raw.provTasks);
   const returning = mapReturning(raw.returning);
-  return { depts, milestones, emps, checked, compIndex, events, provRequests, provTasks, returning };
+  const offboarding = mapOffboarding(raw.offboarding);
+  return { depts, milestones, emps, checked, compIndex, events, provRequests, provTasks, returning, offboarding };
 }
