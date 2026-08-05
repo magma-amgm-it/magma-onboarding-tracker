@@ -164,6 +164,7 @@ export function mapOffboarding(items) {
     leaverUpn: (it.LeaverUpn || '').toLowerCase(),
     managerName: it.ManagerName || '',
     managerUpn: (it.ManagerUpn || '').toLowerCase(),
+    disableTiming: it.DisableTiming || 'Immediately',
     leaveDate: dOnly(it.LeaveDate),
     notes: it.Notes || '',
     stage: it.Stage || 'Requested',

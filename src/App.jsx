@@ -171,7 +171,7 @@ export default function App() {
   // offboarding (leaver) request modal
   const [offOpen, setOffOpen] = useState(false);
   const [offSaving, setOffSaving] = useState(false);
-  const [offForm, setOffForm] = useState({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), notes: '' });
+  const [offForm, setOffForm] = useState({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), disableTiming: 'Immediately', notes: '' });
 
   useEffect(() => { boot(); /* once */ }, []); // eslint-disable-line
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 4200); return () => clearTimeout(t); }, [toast]);
@@ -464,7 +464,7 @@ export default function App() {
 
   /* ---- offboarding handlers ---- */
   const openOffModal = () => {
-    setOffForm({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), notes: '' });
+    setOffForm({ person: null, name: '', upn: '', managerP: null, leaveDate: new Date().toISOString().slice(0, 10), disableTiming: 'Immediately', notes: '' });
     setOffSaving(false); setOffOpen(true);
   };
   async function submitOffboarding() {
@@ -476,7 +476,7 @@ export default function App() {
       await createOffboarding({
         Title: f.name.trim(), LeaverUpn: f.upn.trim().toLowerCase(),
         ManagerName: f.managerP.name, ManagerUpn: (f.managerP.upn || f.managerP.mail || ''),
-        LeaveDate: f.leaveDate, Notes: (f.notes || '').trim(), Stage: 'Requested',
+        LeaveDate: f.leaveDate, Notes: (f.notes || '').trim(), DisableTiming: f.disableTiming, Stage: 'Requested',
       });
       if (syncRef.current) await syncRef.current.refresh();
       setOffOpen(false); setOffSaving(false);
@@ -1303,6 +1303,12 @@ export default function App() {
             <div style={{ marginBottom: 16 }}><PeoplePicker value={f.managerP} onChange={(p) => set('managerP', p)} placeholder="Search the manager…" /></div>
             <label style={lab}>Last day</label>
             <input type="date" value={f.leaveDate} onChange={(e) => set('leaveDate', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
+            <label style={lab}>When to disable access</label>
+            <select value={f.disableTiming} onChange={(e) => set('disableTiming', e.target.value)} style={{ ...inp, marginBottom: 6 }}>
+              <option value="Immediately">Immediately (as soon as IT approves)</option>
+              <option value="End of last working day">End of the last working day</option>
+            </select>
+            <div style={{ fontSize: 12.5, color: MUTED, margin: '0 0 16px' }}>{f.disableTiming === 'End of last working day' ? 'Sign-in stays active until 4:30 PM Atlantic on the last day, then everything runs automatically.' : 'Sign-in is blocked and the mailbox & files move to the manager as soon as IT approves.'}</div>
             <label style={lab}>Notes <span style={{ color: MUTED }}>(optional)</span></label>
             <textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything IT should know" rows={3} style={{ ...inp, resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
