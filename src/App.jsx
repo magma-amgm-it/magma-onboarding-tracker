@@ -691,7 +691,7 @@ export default function App() {
 
   const footStats = isEmployee
     ? [{ label: 'Completion', value: overallPct + '%', color: overallColor }, { label: 'Milestones', value: rm.empId ? doneOf(checked, rm.empId) + '/' + totalOf(rm.empId) : '0/0', color: INK }, { label: 'Reviews', value: '30·60·90', color: INK }, { label: 'Department', value: rm.dept && depts[rm.dept] ? depts[rm.dept].name : '—', color: INK }]
-    : [{ label: 'In onboarding', value: scopeEmps.length, color: INK }, { label: 'On track', value: onTrack, color: INK }, { label: 'Departments', value: scopeDepts.length, color: INK }, { label: 'Overall', value: overallPct + '%', color: overallColor }];
+    : [{ label: 'In onboarding', value: scopeEmps.length, color: INK }, { label: 'On track', value: onTrack, color: INK }, { label: 'Departments', value: overviewDepts.length, color: INK }, { label: 'Overall', value: overallPct + '%', color: overallColor }];
 
   const Overview = () => (
     <div style={{ padding: '52px 48px 64px', maxWidth: 1080 }}>
