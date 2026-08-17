@@ -670,11 +670,6 @@ export default function App() {
             )}
           </div>
         )}
-        {canCreate && (
-          <button onClick={openAssign} className="lift" style={{ border: `1px solid ${INK}`, cursor: 'pointer', fontSize: 15, fontWeight: 500, padding: '8px 15px', borderRadius: 999, background: INK, color: 'oklch(0.965 0.012 75)', display: 'flex', alignItems: 'center', gap: '7px' }}>
-            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New journey
-          </button>
-        )}
       </div>
     </div>
   );
@@ -1602,7 +1597,6 @@ export default function App() {
           <div key={navKey} className="viewfade">{content}</div>
         </div>
       </main>
-      {assignOpen && AssignModal()}
       {reqOpen && NewRequestModal()}
       {retOpen && ReturningModal()}
       {offOpen && OffboardingModal()}
