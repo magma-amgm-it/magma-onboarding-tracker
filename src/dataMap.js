@@ -29,10 +29,16 @@ export function mapDepartments(items) {
     if (!slug) continue;
     out[slug] = {
       name: it.Title || slug,
-      units: (it.Units || '').split(',').map((s) => s.trim()).filter(Boolean),
+      parent: (it.ParentSlug || it.Parent || '').trim(),
+      units: [], // child slugs, built below
       icon: it.IconSvg || '',
       pending: !!it.Pending,
     };
+  }
+  // build the department -> unit -> role tree: each node's units = its child slugs
+  for (const slug of Object.keys(out)) {
+    const p = out[slug].parent;
+    if (p && out[p]) out[p].units.push(slug);
   }
   return out;
 }

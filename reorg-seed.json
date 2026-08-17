@@ -1,0 +1,38 @@
+{
+  "_note": "CONFIRMED tree (Lara, 2026-08-17). Each node is a Departments row. parent empty = top-level department. Milestones stay keyed by slug; a node with no milestones inherits the nearest ancestor that has them. new:true => created; else updated in place (name/parent/pending), keeping its existing icon + milestones. Units label field is cleared on every node (units are now child rows). FOLDER icon used for generic units/leaves.",
+  "nodes": [
+    { "slug": "settlement",             "name": "Settlement & Resettlement",   "parent": "",                       "pending": false, "new": false },
+    { "slug": "intake",                 "name": "Settlement & Integration",    "parent": "settlement",             "pending": false, "new": false },
+    { "slug": "resettlement",           "name": "Resettlement",                "parent": "settlement",             "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "rap",                    "name": "RAP",                         "parent": "resettlement",           "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "cms",                    "name": "CMS",                         "parent": "resettlement",           "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "ac",                     "name": "AC",                          "parent": "resettlement",           "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "client-wellness",        "name": "Client Wellness",             "parent": "resettlement",           "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "pre-employment",         "name": "Pre-Employment",              "parent": "resettlement",           "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+
+    { "slug": "language",               "name": "Language",                    "parent": "",                       "pending": false, "new": false },
+
+    { "slug": "cfs",                    "name": "Children & Family Services",  "parent": "",                       "pending": false, "new": false },
+    { "slug": "cnc",                    "name": "CNC",                         "parent": "cfs",                    "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "wow",                    "name": "WoW",                         "parent": "cfs",                    "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+    { "slug": "family-youth",           "name": "Family & Youth",              "parent": "cfs",                    "pending": false, "new": true,  "icon": "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path>" },
+
+    { "slug": "support-services",       "name": "Support Services",            "parent": "",                       "pending": false, "new": true,  "icon": "<path d=\"M4 13v-1a8 8 0 0 1 16 0v1\"></path><rect x=\"3\" y=\"13\" width=\"4\" height=\"6\" rx=\"1\"></rect><rect x=\"17\" y=\"13\" width=\"4\" height=\"6\" rx=\"1\"></rect>" },
+    { "slug": "hr",                     "name": "HR",                          "parent": "support-services",       "pending": false, "new": false },
+    { "slug": "it",                     "name": "IT",                          "parent": "support-services",       "pending": true,  "new": false },
+    { "slug": "marketing",              "name": "Marketing & Communications",  "parent": "support-services",       "pending": false, "new": false },
+    { "slug": "finance",                "name": "Finance",                     "parent": "support-services",       "pending": false, "new": false },
+    { "slug": "community-partnerships", "name": "Community Partnerships",      "parent": "support-services",       "pending": false, "new": true,  "icon": "<path d=\"M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z\"></path><path d=\"M17 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z\"></path><path d=\"M2 20c0-3 2.5-5 5.5-5M22 20c0-3-2.5-5-5.5-5M9 20v-1a3 3 0 0 1 6 0v1\"></path>" },
+    { "slug": "cultural-facilitator",   "name": "Cultural Facilitator",        "parent": "community-partnerships", "pending": false, "new": false },
+    { "slug": "volunteer-coordinator",  "name": "Volunteer Coordinator",       "parent": "community-partnerships", "pending": false, "new": false },
+    { "slug": "administration",         "name": "Administration",              "parent": "support-services",       "pending": false, "new": true,  "icon": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2\"></rect><path d=\"M8 7h8M8 11h8M8 15h5\"></path>" },
+    { "slug": "exec-assistant",         "name": "Executive Assistant",         "parent": "administration",         "pending": true,  "new": false }
+  ],
+  "milestones": [
+    { "department": "support-services", "month": 1, "sort": 0, "text": "Organizational onboarding — HR policies, cybersecurity, structure & goals", "orgWide": true },
+    { "department": "support-services", "month": 1, "sort": 1, "text": "Familiarization with MAGMA programs, systems, and internal processes", "orgWide": false },
+    { "department": "support-services", "month": 1, "sort": 2, "text": "Cross-Cultural Training", "orgWide": true },
+    { "department": "support-services", "month": 2, "sort": 0, "text": "Take on role responsibilities with supervisor support", "orgWide": false },
+    { "department": "support-services", "month": 3, "sort": 0, "text": "Independent performance of core role responsibilities", "orgWide": false }
+  ]
+}

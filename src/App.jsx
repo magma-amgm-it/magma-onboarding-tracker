@@ -141,6 +141,7 @@ export default function App() {
   const [role, setRole] = useState('hr');       // effective view role (admins can preview)
   const [view, setView] = useState('home');
   const [deptId, setDeptId] = useState(null);
+  const [treeOpen, setTreeOpen] = useState({});   // sidebar tree expand/collapse
   const [empId, setEmpId] = useState(null);
   const [month, setMonth] = useState(1);
   const [listFilter, setListFilter] = useState(null);
@@ -258,6 +259,14 @@ export default function App() {
   const returning = data.returning || [];
   const offboarding = data.offboarding || [];
   const allDepts = Object.keys(depts);
+  // department -> unit -> role tree helpers
+  const topDepts = allDepts.filter((s) => !depts[s].parent);
+  const rootOf = (s) => { let x = s, g = 0; while (x && depts[x] && depts[x].parent && g++ < 12) x = depts[x].parent; return x; };
+  const isDesc = (x, anc) => { let c = x, g = 0; while (c && g++ < 12) { if (c === anc) return true; c = depts[c] && depts[c].parent; } return false; };
+  const treeOrder = (() => { const out = []; const walk = (s, d) => { if (!depts[s]) return; out.push({ slug: s, depth: d }); (depts[s].units || []).forEach((c) => walk(c, d + 1)); }; topDepts.forEach((s) => walk(s, 0)); return out; })();
+  // milestones for a node: its own set, or the nearest ancestor that has one
+  const msFor = (slug) => { let s = slug, g = 0; while (s && g++ < 12) { const m = milestones[s]; if (m && ((m[1] && m[1].length) || (m[2] && m[2].length) || (m[3] && m[3].length))) return m; s = depts[s] && depts[s].parent; } return milestones[slug] || { 1: [], 2: [], 3: [] }; };
+  const childNames = (slug) => (depts[slug] ? depts[slug].units : []).map((u) => (depts[u] ? depts[u].name : u));
 
   /* ---- identity → which hires this (effective) role can see ---- */
   const myUpn = (me.upn || me.email || '').toLowerCase();
@@ -291,13 +300,18 @@ export default function App() {
 
   /* data-bound helpers, scoped to what this person can see */
   const empsIn = (dept) => visibleEmpIds.filter((id) => emps[id].dept === dept);
-  const totalOf = (id) => { const m = milestones[emps[id].dept] || {}; return (m[1]?.length || 0) + (m[2]?.length || 0) + (m[3]?.length || 0); };
+  const totalOf = (id) => { const m = msFor(emps[id].dept); return (m[1]?.length || 0) + (m[2]?.length || 0) + (m[3]?.length || 0); };
   const doneOf = (ck, id) => { let n = 0; for (const k in ck) { if (ck[k] && k.split('|')[0] === id) n++; } return n; };
   const pctOf = (ck, id) => { const t = totalOf(id); return t ? Math.round(doneOf(ck, id) / t * 100) : 0; };
   const deptAvg = (ck, dept) => { const ids = empsIn(dept); if (!ids.length) return 0; return Math.round(ids.reduce((a, id) => a + pctOf(ck, id), 0) / ids.length); };
+  // rollups over a node and all its descendant units/roles
+  const empsInTree = (s) => visibleEmpIds.filter((id) => isDesc(emps[id].dept, s));
+  const deptAvgTree = (ck, s) => { const ids = empsInTree(s); if (!ids.length) return 0; return Math.round(ids.reduce((a, id) => a + pctOf(ck, id), 0) / ids.length); };
 
   const scopeEmps = visibleEmpIds;
   const scopeDepts = seesAll ? allDepts : [...new Set(visibleEmpIds.map((id) => emps[id].dept).filter((d) => depts[d]))];
+  // top-level departments shown on the overview (roll their sub-units up)
+  const overviewDepts = seesAll ? topDepts : [...new Set(visibleEmpIds.map((id) => rootOf(emps[id].dept)).filter((d) => depts[d]))];
   const empSubjectId = isEmployee ? (isITAdmin ? previewHireId : myHireId) : null;
   const primaryDept = scopeDepts[0] || null;
 
@@ -347,7 +361,7 @@ export default function App() {
   // hire has no elapsed-and-incomplete period, so they never flag (unlike the old flat < 40% rule).
   const _todayISO = new Date().toISOString().slice(0, 10);
   const monthDone = (ck, id, m) => {
-    const arr = (milestones[emps[id].dept] || {})[m] || [];
+    const arr = msFor(emps[id].dept)[m] || [];
     for (let i = 0; i < arr.length; i++) if (!ck[`${id}|${m}|${i}`]) return false;
     return true; // empty month = nothing owed = not behind
   };
@@ -405,7 +419,7 @@ export default function App() {
   const openReqModal = () => {
     const d0 = allDepts[0] || '';
     setReqForm({
-      name: '', email: '', managerP: null, deptMgr: null, unitMgr: null, pos: '', dept: d0, unit: (depts[d0] && depts[d0].units[0]) || '',
+      name: '', email: '', managerP: null, deptMgr: null, unitMgr: null, pos: '', dept: d0, unit: '',
       start: new Date().toISOString().slice(0, 10), replacement: '', license: 'Business Premium', location: '', costCentre: '', notes: '',
       items: PROV_TASKS.map(([team, item]) => ({ team, item, needed: true, detail: '' })),
     });
@@ -525,6 +539,28 @@ export default function App() {
 
   /* ---- sidebar ---- */
   const sideItem = (active) => ({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 9, fontSize: 14.5, cursor: 'pointer', color: active ? INK : 'oklch(0.44 0.010 60)', background: active ? 'oklch(0.985 0.006 80)' : 'transparent', boxShadow: active ? 'inset 0 0 0 1px oklch(0.88 0.012 70)' : 'none' });
+  // recursive department -> unit -> role tree row in the sidebar
+  const renderTreeNode = (id, depth) => {
+    const d = depts[id]; if (!d) return null;
+    const kids = d.units || [];
+    const a = activeDept === id;
+    const isOpen = treeOpen[id] || isDesc(activeDept, id);
+    const n = empsInTree(id).length;
+    return (
+      <div key={id}>
+        <div style={{ display: 'flex', alignItems: 'center', paddingLeft: depth * 13 }}>
+          {kids.length > 0
+            ? <span onClick={(e) => { e.stopPropagation(); setTreeOpen((t) => ({ ...t, [id]: !isOpen })); }} style={{ cursor: 'pointer', width: 16, flex: 'none', textAlign: 'center', color: MUTED, fontSize: 10, userSelect: 'none' }}>{isOpen ? '▾' : '▸'}</span>
+            : <span style={{ width: 16, flex: 'none' }} />}
+          <div onClick={() => openDept(id)} className="rowhover" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 8px', borderRadius: 9, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', color: a ? INK : 'oklch(0.44 0.010 60)', background: a ? 'oklch(0.985 0.006 80)' : 'transparent', boxShadow: a ? 'inset 0 0 0 1px oklch(0.88 0.012 70)' : 'none' }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+            <span style={{ fontSize: 13, color: MUTED, flex: 'none', marginLeft: 6 }}>{d.pending && !n ? '·' : (n || '')}</span>
+          </div>
+        </div>
+        {isOpen && kids.map((c) => renderTreeNode(c, depth + 1))}
+      </div>
+    );
+  };
   const Sidebar = () => (
     <aside style={{ borderRight: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.945 0.015 72)', padding: '22px 16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto' }}>
       <div onClick={goHome} style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '26px', padding: '0 4px', cursor: 'pointer' }}>
@@ -538,16 +574,8 @@ export default function App() {
       {!isEmployee && !isTeamOnly && (
         <div>
           <div style={{ fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, padding: '0 6px', margin: '8px 0' }}>Departments</div>
-          {scopeDepts.map(id => {
-            const a = activeDept === id; const n = empsIn(id).length;
-            return (
-              <div key={id} onClick={() => openDept(id)} className="rowhover" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 9, fontSize: 14.5, cursor: 'pointer', whiteSpace: 'nowrap', color: a ? INK : 'oklch(0.44 0.010 60)', background: a ? 'oklch(0.985 0.006 80)' : 'transparent', boxShadow: a ? 'inset 0 0 0 1px oklch(0.88 0.012 70)' : 'none' }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{depts[id] ? depts[id].name : id}</span>
-                <span style={{ fontSize: 14, color: MUTED }}>{depts[id] && depts[id].pending && !n ? '·' : n}</span>
-              </div>
-            );
-          })}
-          {!scopeDepts.length && <div style={{ fontSize: 13.5, color: MUTED, padding: '4px 6px' }}>No departments in scope.</div>}
+          {overviewDepts.map(id => renderTreeNode(id, 0))}
+          {!overviewDepts.length && <div style={{ fontSize: 13.5, color: MUTED, padding: '4px 6px' }}>No departments in scope.</div>}
         </div>
       )}
 
@@ -606,7 +634,7 @@ export default function App() {
   const roleTabs = [['admin', 'Admin'], ['hr', 'HR'], ['exec', 'Exec'], ['manager', 'Manager'], ['employee', 'New hire']];
   const openAssign = () => {
     const d0 = allDepts[0] || '';
-    setAssignDept(d0); setAssignUnit((depts[d0] && depts[d0].units[0]) || '');
+    setAssignDept(d0); setAssignUnit('');
     setAssignHire(null); setAssignPos('');
     // Managers default themselves as the reporting manager (editable); HR starts empty.
     setAssignManagerP(role === 'manager' ? { name: me.name, upn: myUpn, mail: me.email || myUpn } : null);
@@ -692,12 +720,12 @@ export default function App() {
             </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '16px' }}>
-            {scopeDepts.map(id => {
-              const ids = empsIn(id); const has = ids.length > 0; const p = deptAvg(checked, id);
+            {overviewDepts.map(id => {
+              const ids = empsInTree(id); const has = ids.length > 0; const p = deptAvgTree(checked, id);
               const pending = depts[id] && depts[id].pending;
               const meta = has ? (ids.length + ' active · ' + ids.filter(e => pctOf(checked, e) >= 70).length + ' on track')
                 : (pending ? 'Setup pending · milestones to be confirmed' : 'No active hires yet');
-              const unitLine = depts[id] && depts[id].units.length ? ('Units: ' + depts[id].units.join(', ')) : null;
+              const unitLine = depts[id] && depts[id].units.length ? ('Units: ' + childNames(id).join(', ')) : null;
               return (
                 <div key={id} onClick={() => openDept(id)} className="lift" style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '24px', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -777,12 +805,15 @@ export default function App() {
   /* ---- department detail ---- */
   const DeptDetail = () => {
     if (!deptId || isEmployee || !depts[deptId]) return null;
-    const ids = empsIn(deptId); const has = ids.length > 0; const p = deptAvg(checked, deptId); const d = depts[deptId];
-    const meta = has ? (ids.length + ' new hires onboarding · ' + p + '% average') : (d.pending ? 'Setup pending · milestones to be confirmed' : 'No active hires yet');
+    const d = depts[deptId];
+    const ids = empsInTree(deptId); const has = ids.length > 0; const p = deptAvgTree(checked, deptId);
+    const kids = d.units || [];
+    const meta = has ? (ids.length + ' new hires onboarding · ' + p + '% average') : (d.pending ? 'Setup pending · milestones to be confirmed' : (kids.length ? kids.length + ' units' : 'No active hires yet'));
     const rows = ids.map(rowFor);
+    const par = d.parent;
     return (
       <div style={{ padding: '40px 48px 64px' }}>
-        <button onClick={goHome} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, letterSpacing: '0.01em', color: MUTED, padding: 0, marginBottom: '24px' }}>‹ Overview</button>
+        <button onClick={() => (par && depts[par] ? openDept(par) : goHome())} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, letterSpacing: '0.01em', color: MUTED, padding: 0, marginBottom: '24px' }}>‹ {par && depts[par] ? depts[par].name : 'Overview'}</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
           <div style={{ width: 46, height: 46, borderRadius: 11, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.985 0.006 80)', display: 'grid', placeItems: 'center', color: 'oklch(0.44 0.010 60)', flex: 'none' }}>
             <DeptIcon svg={d.icon} />
@@ -794,17 +825,27 @@ export default function App() {
           {has ? <CountUp end={p} suffix="%" style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 40, letterSpacing: '-0.01em', color: colorFor(p) }} />
                : <span style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 40, letterSpacing: '-0.01em', color: MUTED }}>—</span>}
         </div>
-        {d.units.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '22px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13.5, color: MUTED, alignSelf: 'center' }}>Units:</span>
-            {d.units.map(u => <span key={u} style={{ fontSize: 13.5, padding: '4px 11px', borderRadius: 999, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.985 0.006 80)', color: 'oklch(0.58 0.09 45)' }}>{u}</span>)}
+        {kids.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '24px' }}>
+            {kids.map(u => {
+              const kd = depts[u]; const kc = (kd.units || []).length; const kn = empsInTree(u).length; const kp = deptAvgTree(checked, u);
+              return (
+                <div key={u} onClick={() => openDept(u)} className="lift" style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 15.5, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kd.name}{kd.pending ? ' ·' : ''}</div>
+                    <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{kc ? kc + ' units' : (kn ? kn + ' active' : 'no hires yet')}</div>
+                  </div>
+                  <span style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 18, color: kn ? colorFor(kp) : MUTED }}>{kn ? kp + '%' : '›'}</span>
+                </div>
+              );
+            })}
           </div>
         )}
-        {has ? <HiresTable rows={rows} showDept={false} /> : (
+        {has ? <HiresTable rows={rows} showDept={kids.length > 0} /> : (kids.length === 0 && (
           <div style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '40px', textAlign: 'center', color: MUTED, fontSize: 15 }}>
-            {d.pending ? 'Milestones for this department are being finalised. No journeys assigned yet.' : 'No new hires in this department yet.'}
+            {d.pending ? 'Milestones for this team are being finalised. No journeys assigned yet.' : 'No new hires here yet.'}
           </div>
-        )}
+        ))}
       </div>
     );
   };
@@ -848,7 +889,7 @@ export default function App() {
       const m = parseInt((e.key || '').split('|')[1], 10);
       const idx = parseInt((e.key || '').split('|')[2], 10);
       const dept = emps[hireId].dept;
-      const text = (milestones[dept] && milestones[dept][m] && milestones[dept][m][idx]) || 'a milestone';
+      const _dm = msFor(dept); const text = (_dm[m] && _dm[m][idx]) || 'a milestone';
       items.push({ type: 'tick', at: e.at, hire: emps[hireId].name, by: e.byName, text, dept });
     }
     for (const id of scopeEmps) {
@@ -915,7 +956,7 @@ export default function App() {
     if (!empId || !emps[empId]) return null;
     const id = empId, e = emps[id], p = pctOf(checked, id);
     const empColor = colorFor(p);
-    const ms = milestones[e.dept] || { 1: [], 2: [], 3: [] };
+    const ms = msFor(e.dept);
     const cameFromList = listFilter !== null;
     const backLabel = isEmployee ? 'My journey' : cameFromList ? (listFilter === 'attention' ? 'Needs attention' : 'Completed') : (depts[e.dept] ? depts[e.dept].name : 'Overview');
     const unitTxt = e.unit ? ' · ' + e.unit + ' unit' : '';
@@ -1040,9 +1081,9 @@ export default function App() {
   const closeAssign = () => { setAssignOpen(false); setAssignStep('form'); };
   const aDept = depts[assignDept] || { name: '', units: [], icon: '' };
   const assignDeptUnits = aDept.units;
-  const onAssignDept = (v) => { setAssignDept(v); setAssignUnit((depts[v] && depts[v].units[0]) || ''); };
-  const unitTxtA = assignUnit ? ' (' + assignUnit + ' unit)' : '';
-  const previewItems = (milestones[assignDept] && milestones[assignDept][1]) || [];
+  const onAssignDept = (v) => { setAssignDept(v); setAssignUnit(''); };
+  const unitTxtA = '';
+  const previewItems = msFor(assignDept)[1] || [];
 
   const nextRefNum = () => { let max = 42; for (const id in emps) { const n = parseInt((emps[id].ref || '').split('-')[1], 10); if (!isNaN(n) && n > max) max = n; } return max + 1; };
   const addDaysISO = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
@@ -1095,9 +1136,9 @@ export default function App() {
 
               <div style={{ display: 'flex', gap: '14px', marginBottom: '16px' }}>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Department</label>
+                  <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Team / role</label>
                   <select value={assignDept} onChange={(e) => onAssignDept(e.target.value)} style={{ width: '100%', fontSize: 14.5, padding: '11px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, cursor: 'pointer' }}>
-                    {allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}
+                    {treeOrder.map(o => <option key={o.slug} value={o.slug}>{'   '.repeat(o.depth) + (o.depth ? '› ' : '') + depts[o.slug].name}</option>)}
                   </select>
                 </div>
                 <div style={{ flex: 1 }}>
@@ -1105,14 +1146,6 @@ export default function App() {
                   <PeoplePicker value={assignManagerP} onChange={setAssignManagerP} placeholder="Search…" />
                 </div>
               </div>
-              {assignDeptUnits.length > 0 && (
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Unit within {aDept.name}</label>
-                  <select value={assignUnit} onChange={(e) => setAssignUnit(e.target.value)} style={{ width: '100%', fontSize: 14.5, padding: '11px 12px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, cursor: 'pointer' }}>
-                    {assignDeptUnits.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-              )}
               <label style={{ display: 'block', fontSize: 13.5, letterSpacing: '0.01em', color: MUTED, marginBottom: '7px' }}>Start date</label>
               <input value={assignStart} onChange={(e) => setAssignStart(e.target.value)} type="date" style={{ width: '100%', fontSize: 16, padding: '11px 13px', borderRadius: 10, border: '1px solid oklch(0.88 0.012 70)', background: 'oklch(0.965 0.012 75)', color: INK, outline: 'none' }} />
               <div style={{ marginTop: '16px', display: 'flex', gap: '9px', alignItems: 'flex-start', fontSize: 15.5, color: 'oklch(0.44 0.010 60)', lineHeight: 1.5 }}>
@@ -1418,13 +1451,8 @@ export default function App() {
             <label style={lab}>Position / title</label>
             <input value={f.pos} onChange={(e) => set('pos', e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
-              <div style={{ flex: 1 }}><label style={lab}>Department</label>
-                <select value={f.dept} onChange={(e) => { const d = e.target.value; const hasU = depts[d] && depts[d].units.length > 0; setReqForm({ ...f, dept: d, unit: hasU ? depts[d].units[0] : '', ...(hasU ? {} : { deptMgr: null, unitMgr: null }) }); }} style={{ ...inp, cursor: 'pointer' }}>{allDepts.map(id => <option key={id} value={id}>{depts[id].name}</option>)}</select></div>
-              {depts[f.dept] && depts[f.dept].units.length > 0 && (
-                <div style={{ flex: 1 }}><label style={lab}>Unit</label>
-                  <select value={f.unit} onChange={(e) => set('unit', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>{depts[f.dept].units.map(u => <option key={u} value={u}>{u}</option>)}</select>
-                </div>
-              )}
+              <div style={{ flex: 1 }}><label style={lab}>Team / role</label>
+                <select value={f.dept} onChange={(e) => { const d = e.target.value; const hasU = depts[d] && depts[d].units.length > 0; setReqForm({ ...f, dept: d, unit: '', ...(hasU ? {} : { deptMgr: null, unitMgr: null }) }); }} style={{ ...inp, cursor: 'pointer' }}>{treeOrder.map(o => <option key={o.slug} value={o.slug}>{'   '.repeat(o.depth) + (o.depth ? '› ' : '') + depts[o.slug].name}</option>)}</select></div>
             </div>
             <label style={lab}>Start date</label>
             <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
