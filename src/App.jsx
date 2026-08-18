@@ -267,6 +267,10 @@ export default function App() {
   // milestones for a node: its own set, or the nearest ancestor that has one
   const msFor = (slug) => { let s = slug, g = 0; while (s && g++ < 12) { const m = milestones[s]; if (m && ((m[1] && m[1].length) || (m[2] && m[2].length) || (m[3] && m[3].length))) return m; s = depts[s] && depts[s].parent; } return milestones[slug] || { 1: [], 2: [], 3: [] }; };
   const childNames = (slug) => (depts[slug] ? depts[slug].units : []).map((u) => (depts[u] ? depts[u].name : u));
+  // job roles (leaf positions) vs units — labelled distinctly in the UI
+  const ROLE_SLUGS = new Set(['exec-assistant', 'cultural-facilitator', 'volunteer-coordinator']);
+  const isRole = (s) => ROLE_SLUGS.has(s);
+  const kidWord = (slug) => { const k = depts[slug] ? depts[slug].units : []; return k.length && k.every(isRole) ? 'roles' : 'units'; };
 
   /* ---- identity → which hires this (effective) role can see ---- */
   const myUpn = (me.upn || me.email || '').toLowerCase();
@@ -720,7 +724,7 @@ export default function App() {
               const pending = depts[id] && depts[id].pending;
               const meta = has ? (ids.length + ' active · ' + ids.filter(e => pctOf(checked, e) >= 70).length + ' on track')
                 : (pending ? 'Setup pending · milestones to be confirmed' : 'No active hires yet');
-              const unitLine = depts[id] && depts[id].units.length ? ('Units: ' + childNames(id).join(', ')) : null;
+              const unitLine = depts[id] && depts[id].units.length ? ((kidWord(id) === 'roles' ? 'Roles: ' : 'Units: ') + childNames(id).join(', ')) : null;
               return (
                 <div key={id} onClick={() => openDept(id)} className="lift" style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 16, padding: '24px', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -803,7 +807,7 @@ export default function App() {
     const d = depts[deptId];
     const ids = empsInTree(deptId); const has = ids.length > 0; const p = deptAvgTree(checked, deptId);
     const kids = d.units || [];
-    const meta = has ? (ids.length + ' new hires onboarding · ' + p + '% average') : (d.pending ? 'Setup pending · milestones to be confirmed' : (kids.length ? kids.length + ' units' : 'No active hires yet'));
+    const meta = has ? (ids.length + ' new hires onboarding · ' + p + '% average') : (d.pending ? 'Setup pending · milestones to be confirmed' : (kids.length ? kids.length + ' ' + kidWord(deptId) : 'No active hires yet'));
     const rows = ids.map(rowFor);
     const par = d.parent;
     return (
@@ -828,7 +832,7 @@ export default function App() {
                 <div key={u} onClick={() => openDept(u)} className="lift" style={{ background: 'oklch(0.985 0.006 80)', border: '1px solid oklch(0.88 0.012 70)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 15.5, fontWeight: 500, color: INK, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kd.name}{kd.pending ? ' ·' : ''}</div>
-                    <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{kc ? kc + ' units' : (kn ? kn + ' active' : 'no hires yet')}</div>
+                    <div style={{ fontSize: 12.5, color: MUTED, marginTop: 2 }}>{kc ? kc + ' ' + kidWord(u) : (isRole(u) ? 'Role' : (kn ? kn + ' active' : 'no hires yet'))}</div>
                   </div>
                   <span style={{ fontFamily: "'Source Serif 4',Georgia,serif", fontSize: 18, color: kn ? colorFor(kp) : MUTED }}>{kn ? kp + '%' : '›'}</span>
                 </div>
@@ -1447,7 +1451,7 @@ export default function App() {
             <input value={f.pos} onChange={(e) => set('pos', e.target.value)} placeholder="e.g. Settlement Counsellor" style={{ ...inp, marginBottom: 16 }} />
             <div style={{ display: 'flex', gap: 14, marginBottom: 16 }}>
               <div style={{ flex: 1 }}><label style={lab}>Team / role</label>
-                <select value={f.dept} onChange={(e) => { const d = e.target.value; const hasU = depts[d] && depts[d].units.length > 0; setReqForm({ ...f, dept: d, unit: '', ...(hasU ? {} : { deptMgr: null, unitMgr: null }) }); }} style={{ ...inp, cursor: 'pointer' }}>{treeOrder.map(o => <option key={o.slug} value={o.slug}>{'   '.repeat(o.depth) + (o.depth ? '› ' : '') + depts[o.slug].name}</option>)}</select></div>
+                <select value={f.dept} onChange={(e) => { const d = e.target.value; const hasU = depts[d] && depts[d].units.length > 0; setReqForm({ ...f, dept: d, unit: '', ...(hasU ? {} : { deptMgr: null, unitMgr: null }) }); }} style={{ ...inp, cursor: 'pointer' }}>{treeOrder.map(o => <option key={o.slug} value={o.slug}>{'   '.repeat(o.depth) + (o.depth ? '› ' : '') + depts[o.slug].name + (isRole(o.slug) ? '  (role)' : '')}</option>)}</select></div>
             </div>
             <label style={lab}>Start date</label>
             <input type="date" value={f.start} onChange={(e) => set('start', e.target.value)} style={{ ...inp, marginBottom: 16 }} />
