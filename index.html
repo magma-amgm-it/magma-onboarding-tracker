@@ -1,15 +1,47 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MAGMA Onboarding Tracker</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..600&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moved — Employee Lifecycle Tracker</title>
+  <!-- Auto-forward after 4 seconds -->
+  <meta http-equiv="refresh" content="4;url=https://magmaamgmorg.sharepoint.com/sites/MAGMASystems/SitePages/Employee-Lifecycle-Tracker.aspx">
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+      background: #403A60; color: #fff; text-align: center; padding: 24px;
+    }
+    .card {
+      max-width: 520px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 40px 32px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 12px; }
+    p { font-size: 1rem; line-height: 1.6; opacity: .9; margin: 0 0 24px; }
+    .dot { color: #FEA614; }
+    a.btn {
+      display: inline-block; background: #FEA614; color: #403A60; font-weight: 600;
+      text-decoration: none; padding: 12px 24px; border-radius: 10px;
+    }
+    small { display: block; margin-top: 20px; opacity: .6; font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>This tracker has moved<span class="dot">.</span></h1>
+    <p>The Employee Lifecycle Tracker now lives on <strong>MAGMA Systems in SharePoint</strong>.
+       You'll be taken there automatically. Please update your bookmark.</p>
+    <a class="btn" href="https://magmaamgmorg.sharepoint.com/sites/MAGMASystems/SitePages/Employee-Lifecycle-Tracker.aspx">
+      Go to the new tracker &rarr;
+    </a>
+    <small>Redirecting in a few seconds&hellip;</small>
+  </div>
+  <script>
+    // Belt-and-suspenders: JS redirect in case meta-refresh is blocked
+    setTimeout(function () {
+      window.location.replace("https://magmaamgmorg.sharepoint.com/sites/MAGMASystems/SitePages/Employee-Lifecycle-Tracker.aspx");
+    }, 4000);
+  </script>
+</body>
 </html>
